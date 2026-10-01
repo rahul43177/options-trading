@@ -1,0 +1,39 @@
+{
+  "evidence": "REAL DELTA HISTORICAL MARKS; NOT BID/ASK EXECUTION",
+  "base_strategy": "hourly \u00b1$500 1h signal; OTM $1000; 36\u201360h; exact T+5m; 1 contract; 48h/settlement",
+  "coverage": {
+    "total_hourly_signals": 15,
+    "completed_raw": 15,
+    "traded_one_position": 8,
+    "skipped": 0,
+    "coverage_completed_pct": 1.0,
+    "coverage_traded_pct": 0.5333333333333333
+  },
+  "base_metrics": {
+    "trades": 8,
+    "wins": 8,
+    "losses": 0,
+    "win_rate": 1.0,
+    "gross_profit_inr": 142.80172007549746,
+    "gross_loss_inr": 0,
+    "net_pnl_inr": 142.80172007549746,
+    "expectancy_inr": 17.850215009437182,
+    "profit_factor": null,
+    "largest_win_inr": 26.93718384233201,
+    "largest_loss_inr": 9.683735154987465,
+    "max_drawdown_inr": 0,
+    "max_drawdown_pct": 0.0,
+    "longest_win_streak": 8,
+    "longest_loss_streak": 0,
+    "average_mae_inr": 13.382461497075,
+    "average_mfe_inr": 17.84542430964375
+  },
+  "starting_balance_inr": 20000.0,
+  "final_balance_inr": 20142.8017200755,
+  "limitations": [
+    "historical marks, not executable bid/ask",
+    "historical account margin and liquidation unavailable",
+    "TP/stop rows are endpoint proxies, not exact fill simulation",
+    "no parameter optimisation conclusion permitted"
+  ]
+}

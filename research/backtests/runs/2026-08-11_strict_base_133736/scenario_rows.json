@@ -1,0 +1,770 @@
+[
+  {
+    "scenario": "EXEC_MARK",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_MARK",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_MARK",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_MARK",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_MARK",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_MARK",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_MARK",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_MARK",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_CONSERVATIVE",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.21883449979963,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_CONSERVATIVE",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.419054356604377,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_CONSERVATIVE",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.923668363486428,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_CONSERVATIVE",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.678893287409972,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_CONSERVATIVE",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.531546280915816,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_CONSERVATIVE",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.036943901498773,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_CONSERVATIVE",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.354780816811704,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_CONSERVATIVE",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.566550822008601,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_STRESS",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.176375601350806,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_STRESS",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.382197819622675,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_STRESS",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.869606448104065,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_STRESS",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.659525817099997,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_STRESS",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.496465648037542,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_STRESS",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 24.986844964227142,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_STRESS",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.334060895217284,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "EXEC_STRESS",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.539404147027094,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_25_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_25_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_25_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "TP_25_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_25_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "TP_25_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "TP_25_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_25_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_50_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_50_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_50_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "TP_50_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_50_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "TP_50_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "TP_50_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_50_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_60_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_60_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_60_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "TP_60_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_60_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "TP_60_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "TP_60_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_60_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_70_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_70_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_70_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "TP_70_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_70_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "TP_70_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "TP_70_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_70_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_75_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_75_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_75_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "TP_75_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_75_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "TP_75_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "TP_75_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_75_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_80_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_80_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_80_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "TP_80_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_80_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "TP_80_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "TP_80_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_80_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_90_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_90_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_90_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "TP_90_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "TP_90_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "TP_90_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "TP_90_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "TP_90_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_1.5X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": -10.621094083920411,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_1.5X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_1.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_1.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": -4.844772988581339,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_1.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": -8.77542084076155,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_1.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_1.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_1.5X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": -21.237941853364493,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": -17.54733326739386,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.5X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": -31.854789622808582,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.5X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.5X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_2.5X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_3.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": -42.47163739225266,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_3.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_3.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_3.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_3.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_3.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_3.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_3.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_4.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_4.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_4.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_4.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_4.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_4.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_4.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_4.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_5.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-160726",
+    "net_pnl_inr": 21.229449224411837,
+    "source_trade": "2026-07-14T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_5.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-65800-180726",
+    "net_pnl_inr": 18.428268490849803,
+    "source_trade": "2026-07-16T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_5.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-220726",
+    "net_pnl_inr": 26.93718384233201,
+    "source_trade": "2026-07-20T05:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_5.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-63200-260726",
+    "net_pnl_inr": 9.683735154987465,
+    "source_trade": "2026-07-24T13:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_5.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62800-290726",
+    "net_pnl_inr": 17.54031643913538,
+    "source_trade": "2026-07-27T23:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_5.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-62500-310726",
+    "net_pnl_inr": 25.049468635816684,
+    "source_trade": "2026-07-29T20:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_5.0X_ENDPOINT_PROXY",
+    "symbol": "P-BTC-61600-020826",
+    "net_pnl_inr": 10.35996079721031,
+    "source_trade": "2026-07-31T14:25:00+00:00"
+  },
+  {
+    "scenario": "STOP_5.0X_ENDPOINT_PROXY",
+    "symbol": "C-BTC-64800-050826",
+    "net_pnl_inr": 13.573337490753977,
+    "source_trade": "2026-08-03T14:25:00+00:00"
+  }
+]

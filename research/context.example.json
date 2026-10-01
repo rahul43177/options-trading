@@ -1,0 +1,42 @@
+{
+  "generated_at_utc": "REPLACE_WITH_CURRENT_UTC_ISO_TIMESTAMP",
+  "account_state": {
+    "source": "sanitised_delta_read_only_snapshot",
+    "as_of_utc": "REPLACE_WITH_CURRENT_UTC_ISO_TIMESTAMP",
+    "available_balance": 0,
+    "initial_margin": null,
+    "maintenance_margin": null
+  },
+  "setups": [
+    {
+      "asset": "BTC",
+      "side": "call",
+      "zone_low": 85000,
+      "zone_high": 86000,
+      "buffer": 1000,
+      "state": "ARMED",
+      "confirmation": false,
+      "weekly_bias": "bearish",
+      "daily_bias": "neutral",
+      "realized_vol_forecast": null,
+      "macro_risk": "neutral",
+      "event_risk": "unknown",
+      "squeeze": false
+    },
+    {
+      "asset": "ETH",
+      "side": "put",
+      "zone_low": 2600,
+      "zone_high": 2650,
+      "buffer": 40,
+      "state": "WAIT",
+      "confirmation": false,
+      "weekly_bias": "bullish",
+      "daily_bias": "bullish",
+      "realized_vol_forecast": null,
+      "macro_risk": "neutral",
+      "event_risk": "unknown",
+      "squeeze": false
+    }
+  ]
+}

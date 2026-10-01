@@ -1,0 +1,18 @@
+{
+  "evidence_level": "REAL DELTA HISTORICAL OPTION MARK CANDLES (NOT HISTORICAL BID/ASK FILLS)",
+  "starting_balance_inr": 20000.0,
+  "final_balance_inr": 20059.40452493624,
+  "net_pnl_inr": 59.404524936238886,
+  "completed_trades": 17,
+  "skipped_records": 47,
+  "wins": 14,
+  "losses": 3,
+  "win_rate": 0.8235294117647058,
+  "strategy": "BTC +/- $500 over prior 1h; short OTM option ~$1000 away; nearest 36\u201360h expiry; hold to min(2d, settlement); fixed 1 contract; mark-to-mark P&L",
+  "critical_limitations": [
+    "marks are not executable bid/ask",
+    "no historical margin/liquidation/top-up simulation",
+    "INR/USD=85 is a model conversion",
+    "one contract only; no leverage scaling"
+  ]
+}

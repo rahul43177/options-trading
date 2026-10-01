@@ -1,0 +1,611 @@
+[
+  {
+    "entry_signal_utc": "2024-08-12T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-60600-140824"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-09-19T12:00:00+00:00",
+    "entry_mark_utc": "2024-09-19T12:05:00+00:00",
+    "exit_mark_utc": "2024-09-21T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-63600-210924",
+    "strike_usd": 63600.0,
+    "spot_entry_usd": 62762.5,
+    "one_hour_move_usd": 514.0,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 762.26449795,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 7.623644979500001e-05,
+    "pnl_usd": 0.7620882615002049,
+    "pnl_inr": 64.77750222751742,
+    "balance_before_inr": 20000.0,
+    "balance_after_inr": 20064.777502227516,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-11-06T12:00:00+00:00",
+    "entry_mark_utc": "2024-11-06T12:05:00+00:00",
+    "exit_mark_utc": "2024-11-08T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-75400-081124",
+    "strike_usd": 75400.0,
+    "spot_entry_usd": 74494.0,
+    "one_hour_move_usd": 728.0,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1247.03881358,
+    "exit_mark_usd": 687.04827586,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.000193408708944,
+    "pnl_usd": 0.5597971290110559,
+    "pnl_inr": 47.582755965939754,
+    "balance_before_inr": 20064.777502227516,
+    "balance_after_inr": 20112.360258193457,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-11-18T12:00:00+00:00",
+    "entry_mark_utc": "2024-11-18T12:05:00+00:00",
+    "exit_mark_utc": "2024-11-20T12:00:00+00:00",
+    "direction": "down",
+    "symbol": "P-BTC-89600-201124",
+    "strike_usd": 89600.0,
+    "spot_entry_usd": 90516.5,
+    "one_hour_move_usd": -1247.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1362.83614888,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.000136293614888,
+    "pnl_usd": 1.3625998552651122,
+    "pnl_inr": 115.82098769753453,
+    "balance_before_inr": 20112.360258193457,
+    "balance_after_inr": 20228.18124589099,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-11-29T12:00:00+00:00",
+    "entry_mark_utc": "2024-11-29T12:05:00+00:00",
+    "exit_mark_utc": "2024-12-01T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-98400-011224",
+    "strike_usd": 98400.0,
+    "spot_entry_usd": 97350.0,
+    "one_hour_move_usd": 580.0,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 796.97360388,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 7.9707360388e-05,
+    "pnl_usd": 0.7967938965196121,
+    "pnl_inr": 67.72748120416702,
+    "balance_before_inr": 20228.18124589099,
+    "balance_after_inr": 20295.90872709516,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-12-15T12:00:00+00:00",
+    "entry_mark_utc": "2024-12-15T12:05:00+00:00",
+    "exit_mark_utc": "2024-12-17T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-103600-171224",
+    "strike_usd": 103600.0,
+    "spot_entry_usd": 102771.5,
+    "one_hour_move_usd": 590.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1203.65596828,
+    "exit_mark_usd": 3357.42068966,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.00045610766579400004,
+    "pnl_usd": -2.154220829045794,
+    "pnl_inr": -183.1087704688925,
+    "balance_before_inr": 20295.90872709516,
+    "balance_after_inr": 20112.79995662627,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-12-16T12:00:00+00:00",
+    "entry_mark_utc": "2024-12-16T12:05:00+00:00",
+    "exit_mark_utc": "2024-12-18T12:00:00+00:00",
+    "direction": "down",
+    "symbol": "P-BTC-102800-181224",
+    "strike_usd": 102800.0,
+    "spot_entry_usd": 103844.5,
+    "one_hour_move_usd": -884.0,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1068.95499195,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.00010690549919499999,
+    "pnl_usd": 1.0687480864508052,
+    "pnl_inr": 90.84358734831844,
+    "balance_before_inr": 20112.79995662627,
+    "balance_after_inr": 20203.643543974587,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-12-18T12:00:00+00:00",
+    "entry_mark_utc": "2024-12-18T12:05:00+00:00",
+    "exit_mark_utc": "2024-12-20T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-106200-201224",
+    "strike_usd": 106200.0,
+    "spot_entry_usd": 105147.5,
+    "one_hour_move_usd": 556.0,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1142.17399793,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.00011422739979300002,
+    "pnl_usd": 1.1419597705302071,
+    "pnl_inr": 97.06658049506761,
+    "balance_before_inr": 20203.643543974587,
+    "balance_after_inr": 20300.710124469653,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-12-20T12:00:00+00:00",
+    "entry_mark_utc": "2024-12-20T12:05:00+00:00",
+    "exit_mark_utc": "2024-12-22T12:00:00+00:00",
+    "direction": "down",
+    "symbol": "P-BTC-91600-221224",
+    "strike_usd": 91600.0,
+    "spot_entry_usd": 92619.5,
+    "one_hour_move_usd": -1734.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1329.48907968,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.00013295890796800002,
+    "pnl_usd": 1.3292561207720321,
+    "pnl_inr": 112.98677026562274,
+    "balance_before_inr": 20300.710124469653,
+    "balance_after_inr": 20413.696894735276,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2024-12-25T12:00:00+00:00",
+    "entry_mark_utc": "2024-12-25T12:05:00+00:00",
+    "exit_mark_utc": "2024-12-27T12:00:00+00:00",
+    "direction": "down",
+    "symbol": "P-BTC-97000-271224",
+    "strike_usd": 97000.0,
+    "spot_entry_usd": 97742.5,
+    "one_hour_move_usd": -668.0,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1036.57793746,
+    "exit_mark_usd": 328.89310345,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.000136547104091,
+    "pnl_usd": 0.707548286905909,
+    "pnl_inr": 60.14160438700226,
+    "balance_before_inr": 20413.696894735276,
+    "balance_after_inr": 20473.838499122277,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2025-01-06T12:00:00+00:00",
+    "entry_mark_utc": "2025-01-06T12:05:00+00:00",
+    "exit_mark_utc": "2025-01-08T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-100400-080125",
+    "strike_usd": 100400.0,
+    "spot_entry_usd": 99359.5,
+    "one_hour_move_usd": 586.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 971.28071215,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 9.7138071215e-05,
+    "pnl_usd": 0.971083574078785,
+    "pnl_inr": 82.54210379669672,
+    "balance_before_inr": 20473.838499122277,
+    "balance_after_inr": 20556.380602918973,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2025-01-07T12:00:00+00:00",
+    "entry_mark_utc": "2025-01-07T12:05:00+00:00",
+    "exit_mark_utc": "2025-01-09T12:00:00+00:00",
+    "direction": "down",
+    "symbol": "P-BTC-99800-090125",
+    "strike_usd": 99800.0,
+    "spot_entry_usd": 100847.5,
+    "one_hour_move_usd": -547.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 782.12102753,
+    "exit_mark_usd": 6306.13793103,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.000708825895856,
+    "pnl_usd": -5.524725729395856,
+    "pnl_inr": -469.6016869986477,
+    "balance_before_inr": 20556.380602918973,
+    "balance_after_inr": 20086.778915920324,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2025-01-08T12:00:00+00:00",
+    "entry_mark_utc": "2025-01-08T12:05:00+00:00",
+    "exit_mark_utc": "2025-01-10T12:00:00+00:00",
+    "direction": "down",
+    "symbol": "P-BTC-94000-100125",
+    "strike_usd": 94000.0,
+    "spot_entry_usd": 95170.0,
+    "one_hour_move_usd": -796.0,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 930.36617526,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 9.3046617526e-05,
+    "pnl_usd": 0.930173128642474,
+    "pnl_inr": 79.06471593461029,
+    "balance_before_inr": 20086.778915920324,
+    "balance_after_inr": 20165.843631854936,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "entry_signal_utc": "2025-01-13T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-89600-150125"
+  },
+  {
+    "entry_signal_utc": "2025-02-02T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-98000-040225"
+  },
+  {
+    "entry_signal_utc": "2025-02-03T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-94000-050225"
+  },
+  {
+    "entry_signal_utc": "2025-02-05T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-99500-070225"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2025-02-07T12:00:00+00:00",
+    "entry_mark_utc": "2025-02-07T12:05:00+00:00",
+    "exit_mark_utc": "2025-02-09T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-98800-090225",
+    "strike_usd": 98800.0,
+    "spot_entry_usd": 97829.5,
+    "one_hour_move_usd": 537.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 671.54134201,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 6.716413420100001e-05,
+    "pnl_usd": 0.6713741778757989,
+    "pnl_inr": 57.066805119442904,
+    "balance_before_inr": 20165.843631854936,
+    "balance_after_inr": 20222.91043697438,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "entry_signal_utc": "2025-02-25T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-90000-270225"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2025-02-26T12:00:00+00:00",
+    "entry_mark_utc": "2025-02-26T12:05:00+00:00",
+    "exit_mark_utc": "2025-02-28T12:00:00+00:00",
+    "direction": "down",
+    "symbol": "P-BTC-87000-280225",
+    "strike_usd": 87000.0,
+    "spot_entry_usd": 88445.5,
+    "one_hour_move_usd": -676.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 691.51471101,
+    "exit_mark_usd": 6397.87241379,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.00070893871248,
+    "pnl_usd": -5.70706664149248,
+    "pnl_inr": -485.1006645268608,
+    "balance_before_inr": 20222.91043697438,
+    "balance_after_inr": 19737.80977244752,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2025-03-03T12:00:00+00:00",
+    "entry_mark_utc": "2025-03-03T12:05:00+00:00",
+    "exit_mark_utc": "2025-03-05T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-94000-050325",
+    "strike_usd": 94000.0,
+    "spot_entry_usd": 93140.5,
+    "one_hour_move_usd": 701.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1542.05446906,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.000154215446906,
+    "pnl_usd": 1.541800253613094,
+    "pnl_inr": 131.05302155711297,
+    "balance_before_inr": 19737.80977244752,
+    "balance_after_inr": 19868.86279400463,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "entry_signal_utc": "2025-03-10T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-84600-120325"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2025-03-12T12:00:00+00:00",
+    "entry_mark_utc": "2025-03-12T12:05:00+00:00",
+    "exit_mark_utc": "2025-03-14T12:00:00+00:00",
+    "direction": "up",
+    "symbol": "C-BTC-84000-140325",
+    "strike_usd": 84000.0,
+    "spot_entry_usd": 83128.0,
+    "one_hour_move_usd": 541.5,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 1360.65126447,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 0.00013607512644699997,
+    "pnl_usd": 1.360415189343553,
+    "pnl_inr": 115.635291094202,
+    "balance_before_inr": 19868.86279400463,
+    "balance_after_inr": 19984.498085098832,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "status": "COMPLETED_MARK_TO_MARK",
+    "entry_signal_utc": "2025-03-16T12:00:00+00:00",
+    "entry_mark_utc": "2025-03-16T12:05:00+00:00",
+    "exit_mark_utc": "2025-03-18T12:00:00+00:00",
+    "direction": "down",
+    "symbol": "P-BTC-81600-180325",
+    "strike_usd": 81600.0,
+    "spot_entry_usd": 82581.5,
+    "one_hour_move_usd": -719.0,
+    "contract_value_btc": 0.001,
+    "contracts": 1,
+    "entry_mark_usd": 881.44038742,
+    "exit_mark_usd": 0.1,
+    "fee_rate_assumption": 0.0001,
+    "fee_usd": 8.815403874200002e-05,
+    "pnl_usd": 0.881252233381258,
+    "pnl_inr": 74.90643983740694,
+    "balance_before_inr": 19984.498085098832,
+    "balance_after_inr": 20059.40452493624,
+    "data": "REAL_DELTA_HISTORICAL_MARK_CANDLES"
+  },
+  {
+    "entry_signal_utc": "2025-03-29T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-81200-310325"
+  },
+  {
+    "entry_signal_utc": "2025-04-07T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-75600-090425"
+  },
+  {
+    "entry_signal_utc": "2025-04-08T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-80800-100425"
+  },
+  {
+    "entry_signal_utc": "2025-04-25T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-95600-270425"
+  },
+  {
+    "entry_signal_utc": "2025-05-12T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-102800-140525"
+  },
+  {
+    "entry_signal_utc": "2025-05-23T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-107600-250525"
+  },
+  {
+    "entry_signal_utc": "2025-06-04T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-104000-060625"
+  },
+  {
+    "entry_signal_utc": "2025-06-09T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-108800-110625"
+  },
+  {
+    "entry_signal_utc": "2025-07-21T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-116800-230725"
+  },
+  {
+    "entry_signal_utc": "2025-07-30T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-116600-010825"
+  },
+  {
+    "entry_signal_utc": "2025-08-01T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-116400-030825"
+  },
+  {
+    "entry_signal_utc": "2025-09-02T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-108600-040925"
+  },
+  {
+    "entry_signal_utc": "2025-10-09T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-124000-111025"
+  },
+  {
+    "entry_signal_utc": "2025-10-15T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-110800-171025"
+  },
+  {
+    "entry_signal_utc": "2025-10-17T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-106800-191025"
+  },
+  {
+    "entry_signal_utc": "2025-10-23T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-107600-251025"
+  },
+  {
+    "entry_signal_utc": "2025-10-26T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-114400-281025"
+  },
+  {
+    "entry_signal_utc": "2025-10-31T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-111600-021125"
+  },
+  {
+    "entry_signal_utc": "2025-11-02T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-112000-041125"
+  },
+  {
+    "entry_signal_utc": "2025-11-03T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-109000-051125"
+  },
+  {
+    "entry_signal_utc": "2025-11-04T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-105600-061125"
+  },
+  {
+    "entry_signal_utc": "2025-11-08T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-101000-101125"
+  },
+  {
+    "entry_signal_utc": "2025-11-14T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-94800-161125"
+  },
+  {
+    "entry_signal_utc": "2025-11-16T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-94600-181125"
+  },
+  {
+    "entry_signal_utc": "2025-11-21T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-81200-231125"
+  },
+  {
+    "entry_signal_utc": "2025-11-23T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-87400-251125"
+  },
+  {
+    "entry_signal_utc": "2025-12-17T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-88200-191225"
+  },
+  {
+    "entry_signal_utc": "2026-01-28T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-91000-300126"
+  },
+  {
+    "entry_signal_utc": "2026-02-08T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-72000-100226"
+  },
+  {
+    "entry_signal_utc": "2026-02-14T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-71200-160226"
+  },
+  {
+    "entry_signal_utc": "2026-02-20T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-66400-220226"
+  },
+  {
+    "entry_signal_utc": "2026-02-27T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-65200-010326"
+  },
+  {
+    "entry_signal_utc": "2026-03-11T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-68000-130326"
+  },
+  {
+    "entry_signal_utc": "2026-03-18T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-72000-200326"
+  },
+  {
+    "entry_signal_utc": "2026-03-23T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-71000-250326"
+  },
+  {
+    "entry_signal_utc": "2026-05-18T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-78200-200526"
+  },
+  {
+    "entry_signal_utc": "2026-06-05T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-60800-070626"
+  },
+  {
+    "entry_signal_utc": "2026-06-22T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-65600-240626"
+  },
+  {
+    "entry_signal_utc": "2026-06-24T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "C-BTC-64000-260626"
+  },
+  {
+    "entry_signal_utc": "2026-07-06T12:00:00+00:00",
+    "status": "SKIPPED_MISSING_MARK",
+    "symbol": "P-BTC-60800-080726"
+  }
+]

@@ -1,0 +1,7 @@
+metric,value
+total_hourly_signals,15
+completed_raw,15
+traded_one_position,8
+skipped,0
+coverage_completed_pct,1.0
+coverage_traded_pct,0.5333333333333333
