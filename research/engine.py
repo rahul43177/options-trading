@@ -221,6 +221,25 @@ def _candidate(option: dict[str, Any], setup: dict[str, Any], cfg: EngineConfig,
     }
 
 
+def setup_ids(setups: list[dict[str, Any]]) -> list[str]:
+    """One unique, deterministic id per setup, in input order.
+
+    Several setups may share an asset/side (e.g. a NEAR and a STRUCTURAL PUT band), so asset/side
+    alone cannot identify which zone a candidate came from. Uses the setup's own `id` if given,
+    else ASSET-SIDE-<band> (band = "near"/"structural" when supplied) or ASSET-SIDE-<index>;
+    collisions get a #<index> suffix.
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for i, s in enumerate(setups):
+        sid = str(s.get("id") or f"{str(s.get('asset', '')).upper()}-{str(s.get('side', '')).upper()}-{s.get('band') or i}")
+        if sid in seen:
+            sid = f"{sid}#{i}"
+        seen.add(sid)
+        out.append(sid)
+    return out
+
+
 def analyze(context: dict[str, Any], chains: dict[str, list[dict[str, Any]]] | None = None,
             config: EngineConfig = EngineConfig(), now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
@@ -229,14 +248,18 @@ def analyze(context: dict[str, Any], chains: dict[str, list[dict[str, Any]]] | N
     results: list[dict[str, Any]] = []
     raw_chains = chains or {}
     live_cache: dict[str, list[dict[str, Any]]] = {}
-    for setup in context.get("setups", []):
+    setups = context.get("setups", [])
+    ids = setup_ids(setups)
+    setup_by_id = dict(zip(ids, setups))
+    for sid, setup in zip(ids, setups):
         asset = str(setup.get("asset", "")).upper()
         side = str(setup.get("side", "")).upper()
+        band = setup.get("band")
         if asset not in UNDERLYINGS or side not in {"CALL", "PUT"}:
-            results.append({"asset": asset, "side": side, "eligible": False, "hard_failures": ["invalid_setup"]})
+            results.append({"asset": asset, "side": side, "setup_id": sid, "band": band, "eligible": False, "hard_failures": ["invalid_setup"]})
             continue
         if setup.get("zone") is None and (setup.get("zone_low") is None or setup.get("zone_high") is None):
-            results.append({"asset": asset, "side": side, "eligible": False, "hard_failures": ["setup_zone_missing"]})
+            results.append({"asset": asset, "side": side, "setup_id": sid, "band": band, "eligible": False, "hard_failures": ["setup_zone_missing"]})
             continue
         if chains is not None:
             options = raw_chains.get(asset)
@@ -245,9 +268,10 @@ def analyze(context: dict[str, Any], chains: dict[str, list[dict[str, Any]]] | N
                 live_cache[asset] = load_options(asset)
             options = live_cache[asset]
         if not options:
-            results.append({"asset": asset, "side": side, "eligible": False, "hard_failures": ["no_chain_rows"]})
+            results.append({"asset": asset, "side": side, "setup_id": sid, "band": band, "eligible": False, "hard_failures": ["no_chain_rows"]})
             continue
-        results.extend(_candidate(o, setup, config, now) for o in options if o.get("type") == side)
+        results.extend({**_candidate(o, setup, config, now), "setup_id": sid, "band": band}
+                       for o in options if o.get("type") == side)
 
     eligible = [x for x in results if x.get("eligible")]
     eligible.sort(key=lambda x: (x["score"], x.get("oi") or 0, -x["spread_pct"]), reverse=True)
@@ -261,7 +285,7 @@ def analyze(context: dict[str, Any], chains: dict[str, list[dict[str, Any]]] | N
 
     state = "NO_ELIGIBLE_CANDIDATE"
     if winner:
-        setup = next((s for s in context.get("setups", []) if str(s.get("asset", "")).upper() == winner["asset"] and str(s.get("side", "")).upper() == winner["side"]), {})
+        setup = setup_by_id.get(winner["setup_id"], {})
         confirmed = bool(setup.get("confirmation")) and str(setup.get("state", "")).upper() == "VALID"
         if winner["evidence_gaps"]:
             state = "BEST_CONDITIONAL_MORE_DATA_REQUIRED"
@@ -327,9 +351,9 @@ def _load_chain_fixture(path: Path) -> dict[str, list[dict[str, Any]]]:
 
 def _print_human(result: dict[str, Any]) -> None:
     print(f"Decision: {result['decision']}  (read-only)")
-    print(f"{'':8} {'contract':<24} {'score':>6} {'bid':>8} {'ask':>8} {'spr%':>6} {'OI':>8} {'|d|':>5}")
+    print(f"{'':8} {'contract':<24} {'band':<14} {'score':>6} {'bid':>8} {'ask':>8} {'spr%':>6} {'OI':>8} {'|d|':>5}")
     for row in [x for x in result["candidates"] if x.get("eligible")][:12]:
-        print(f"{row['marker']:<8} {row['symbol']:<24} {row['score']:>6.1f} {row['bid']:>8.2f} {row['ask']:>8.2f} "
+        print(f"{row['marker']:<8} {row['symbol']:<24} {str(row.get('band') or row.get('setup_id'))[:14]:<14} {row['score']:>6.1f} {row['bid']:>8.2f} {row['ask']:>8.2f} "
               f"{row['spread_pct']:>6.1f} {row['oi']:>8.0f} {abs(row['delta']):>5.2f}")
     if result["best_candidate"]:
         print("\n◄ BEST marks the highest-ranked contract after all hard gates; it is not an instruction to trade.")
