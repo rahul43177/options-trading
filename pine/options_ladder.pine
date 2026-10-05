@@ -1,0 +1,229 @@
+// Options Ladder — draws an /options-entry read on the chart. READ-ONLY: it plots levels and
+// raises alerts; it never places, modifies or cancels an order.
+//
+// Paste the LADDER line that /options-entry prints into "Ladder string". Keys, any order,
+// separated by ';' (newlines also work; commas inside numbers are ignored):
+//   TS=<scan time>              STATUS=WAIT|ARMED|VALID      EXP=<DD-Mon-YYYY>
+//   NR=lo-hi   SR=lo-hi         near / structural RESISTANCE band (call-short watch)
+//   NS=lo-hi   SS=lo-hi         near / structural SUPPORT band   (put-short watch)
+//   TRIG=lo-hi                  where the reversal must print for the favoured side
+//   BEST=P83200@89              the single best candidate: side + strike @ rest@ premium
+//   ALT=P83800@162|C87200@164   alternatives, '|'-separated (max 4)
+//   INV=85000|84620|83650       invalidation levels, '|'-separated (max 3): first = soft, last = hard
+//   MP=85200                    max-pain magnet (context only)
+// A single number is accepted for any band (e.g. SR=86100).
+//
+// Example:
+// TS=2026-10-04 18:23 UTC;STATUS=ARMED;EXP=06-Oct-2026;NR=85467-85586;SR=86055-86100;NS=84619-85291;SS=83830-84415;TRIG=85000-85250;BEST=P83200@89;ALT=P83800@162|C87200@164;INV=85000|84620|83650;MP=85200
+//
+// Alerts ("Once Per Bar Close" recommended):
+//   * Entered trigger zone   — price is where the reversal must print; it is NOT an entry by itself.
+//   * Soft / hard invalidation — a close through the first / last INV level, in the direction that
+//     hurts the BEST side (down for a put, up for a call).
+
+//@version=5
+indicator("Options Ladder", "OPT-LADDER", overlay=true, max_lines_count=50, max_boxes_count=20, max_labels_count=50)
+
+ladder = input.text_area("", "Ladder string (paste from /options-entry)")
+lookback = input.int(150, "Draw from N bars back", minval=10, maxval=2000)
+offset = input.int(10, "Label offset (bars right)", minval=1, maxval=200)
+show_table = input.bool(true, "Show summary table")
+
+// ---------------------------------------------------------------- parsing helpers
+f_num(string s) =>
+    str.tonumber(str.replace_all(str.replace_all(s, " ", ""), ",", ""))
+
+f_range(string v) =>
+    parts = str.split(v, "-")
+    a = array.size(parts) > 0 ? f_num(array.get(parts, 0)) : na
+    b = array.size(parts) > 1 ? f_num(array.get(parts, 1)) : a
+    [math.min(a, b), math.max(a, b)]
+
+// "P83200@89" -> ["P", 83200, "89"]
+f_strike(string v) =>
+    t = str.upper(str.replace_all(v, " ", ""))
+    sd = str.substring(t, 0, 1)
+    at = str.pos(t, "@")
+    k = na(at) ? f_num(str.substring(t, 1)) : f_num(str.substring(t, 1, at))
+    rest = na(at) ? "" : str.substring(t, at + 1)
+    [sd, k, rest]
+
+// ---------------------------------------------------------------- parsed state (once)
+var string ts = ""
+var string status = "WAIT"
+var string expiry = ""
+var string unknown = ""
+var float nr_lo = na
+var float nr_hi = na
+var float sr_lo = na
+var float sr_hi = na
+var float ns_lo = na
+var float ns_hi = na
+var float ss_lo = na
+var float ss_hi = na
+var float tr_lo = na
+var float tr_hi = na
+var float mp = na
+var string best_side = ""
+var float best_k = na
+var string best_rest = ""
+var string[] alt_side = array.new_string()
+var float[] alt_k = array.new_float()
+var string[] alt_rest = array.new_string()
+var float[] invs = array.new_float()
+
+if barstate.isfirst and str.length(ladder) > 0
+    for item in str.split(str.replace_all(ladder, "\n", ";"), ";")
+        kv = str.split(item, "=")
+        if array.size(kv) >= 2
+            key = str.upper(str.replace_all(array.get(kv, 0), " ", ""))
+            val = array.get(kv, 1)
+            if key == "TS"
+                ts := val
+            else if key == "STATUS"
+                status := str.upper(str.replace_all(val, " ", ""))
+            else if key == "EXP"
+                expiry := str.replace_all(val, " ", "")
+            else if key == "NR"
+                [a, b] = f_range(val)
+                nr_lo := a
+                nr_hi := b
+            else if key == "SR"
+                [a, b] = f_range(val)
+                sr_lo := a
+                sr_hi := b
+            else if key == "NS"
+                [a, b] = f_range(val)
+                ns_lo := a
+                ns_hi := b
+            else if key == "SS"
+                [a, b] = f_range(val)
+                ss_lo := a
+                ss_hi := b
+            else if key == "TRIG"
+                [a, b] = f_range(val)
+                tr_lo := a
+                tr_hi := b
+            else if key == "MP"
+                mp := f_num(val)
+            else if key == "BEST"
+                [sd, k, r] = f_strike(val)
+                best_side := sd
+                best_k := k
+                best_rest := r
+            else if key == "ALT"
+                for s in str.split(val, "|")
+                    if str.length(str.replace_all(s, " ", "")) > 1 and array.size(alt_k) < 4
+                        [sd, k, r] = f_strike(s)
+                        array.push(alt_side, sd)
+                        array.push(alt_k, k)
+                        array.push(alt_rest, r)
+            else if key == "INV"
+                for s in str.split(val, "|")
+                    x = f_num(s)
+                    if not na(x) and array.size(invs) < 3
+                        array.push(invs, x)
+            else
+                unknown := unknown + key + " "
+
+// ---------------------------------------------------------------- drawing (last bar only)
+var line[] lns = array.new_line()
+var box[] bxs = array.new_box()
+var label[] lbs = array.new_label()
+
+c_res = color.red
+c_sup = color.green
+c_trig = color.blue
+c_inv = color.orange
+
+f_band(float lo, float hi, color c, string name, int transp) =>
+    box b = na
+    if not na(lo) and not na(hi)
+        txt = name + "  " + str.tostring(lo, "#,###") + (hi != lo ? "–" + str.tostring(hi, "#,###") : "")
+        b := box.new(bar_index - lookback, hi, bar_index + offset, lo, border_color=color.new(c, 40), bgcolor=color.new(c, transp), extend=extend.right, text=txt, text_color=c, text_size=size.small, text_halign=text.align_left, text_valign=text.align_top)
+    b
+
+f_level(float y, color c, string style, string txt) =>
+    line ln = na
+    label lb = na
+    if not na(y)
+        ln := line.new(bar_index - lookback, y, bar_index + offset, y, color=c, style=style, width=1, extend=extend.right)
+        lb := label.new(bar_index + offset, y, txt, style=label.style_label_left, color=color.new(c, 85), textcolor=c, size=size.small)
+    [ln, lb]
+
+f_strike_line(string sd, float k, string rest, string tag, int width) =>
+    line ln = na
+    label lb = na
+    if not na(k)
+        c = sd == "C" ? c_res : c_sup
+        txt = tag + sd + " " + str.tostring(k, "#") + (rest != "" ? " · rest@ " + rest : "") + (expiry != "" ? " · " + expiry : "")
+        ln := line.new(bar_index - lookback, k, bar_index + offset, k, color=c, style=line.style_solid, width=width, extend=extend.right)
+        lb := label.new(bar_index + offset, k, txt, style=label.style_label_left, color=color.new(c, 75), textcolor=c, size=size.small)
+    [ln, lb]
+
+if barstate.islast
+    for l in lns
+        line.delete(l)
+    array.clear(lns)
+    for b in bxs
+        box.delete(b)
+    array.clear(bxs)
+    for lb in lbs
+        label.delete(lb)
+    array.clear(lbs)
+
+    array.push(bxs, f_band(sr_lo, sr_hi, c_res, "STRUCT RESIST", 92))
+    array.push(bxs, f_band(nr_lo, nr_hi, c_res, "NEAR RESIST", 85))
+    array.push(bxs, f_band(ns_lo, ns_hi, c_sup, "NEAR SUPPORT", 85))
+    array.push(bxs, f_band(ss_lo, ss_hi, c_sup, "STRUCT SHELF", 92))
+    array.push(bxs, f_band(tr_lo, tr_hi, c_trig, "TRIGGER (wait for reversal)", 80))
+
+    best_tag = status == "VALID" ? "◄ BEST NOW  " : "◄ BEST IF TRIGGERED  "
+    [bl, blb] = f_strike_line(best_side, best_k, best_rest, best_tag, 2)
+    array.push(lns, bl)
+    array.push(lbs, blb)
+    if array.size(alt_k) > 0
+        for i = 0 to array.size(alt_k) - 1
+            [al, alb] = f_strike_line(array.get(alt_side, i), array.get(alt_k, i), array.get(alt_rest, i), "alt  ", 1)
+            array.push(lns, al)
+            array.push(lbs, alb)
+    if array.size(invs) > 0
+        for i = 0 to array.size(invs) - 1
+            nm = i == 0 ? "soft" : i == array.size(invs) - 1 ? "hard" : "mid"
+            [il, ilb] = f_level(array.get(invs, i), c_inv, line.style_dashed, "INVALIDATION (" + nm + ") " + str.tostring(array.get(invs, i), "#,###"))
+            array.push(lns, il)
+            array.push(lbs, ilb)
+    [ml, mlb] = f_level(mp, color.gray, line.style_dotted, "max-pain " + str.tostring(mp, "#,###"))
+    array.push(lns, ml)
+    array.push(lbs, mlb)
+
+var table info = table.new(position.top_right, 2, 6, bgcolor=color.new(color.black, 25), border_width=1)
+if barstate.islast and show_table
+    st_col = status == "VALID" ? color.lime : status == "ARMED" ? color.aqua : color.yellow
+    best_txt = na(best_k) ? "none" : best_side + " " + str.tostring(best_k, "#") + (best_rest != "" ? " @ " + best_rest : "")
+    table.cell(info, 0, 0, "Scan", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 0, ts == "" ? "—" : ts, text_color=color.white, text_size=size.small)
+    table.cell(info, 0, 1, "Status", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 1, status, text_color=st_col, text_size=size.small)
+    table.cell(info, 0, 2, "Best", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 2, best_txt, text_color=color.white, text_size=size.small)
+    table.cell(info, 0, 3, "Expiry", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 3, expiry == "" ? "—" : expiry, text_color=color.white, text_size=size.small)
+    table.cell(info, 0, 4, "Parse", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 4, str.length(ladder) == 0 ? "paste a ladder string" : unknown == "" ? "ok" : "unknown keys: " + unknown, text_color=unknown == "" ? color.gray : color.orange, text_size=size.small)
+    table.cell(info, 0, 5, "Note", text_color=color.gray, text_size=size.small)
+    table.cell(info, 1, 5, "read-only · you place every order", text_color=color.gray, text_size=size.small)
+
+// ---------------------------------------------------------------- alerts
+in_trig = not na(tr_lo) and close >= tr_lo and close <= tr_hi
+inv_soft = array.size(invs) > 0 ? array.get(invs, 0) : na
+inv_hard = array.size(invs) > 0 ? array.get(invs, array.size(invs) - 1) : na
+soft_dn = ta.crossunder(close, inv_soft)
+soft_up = ta.crossover(close, inv_soft)
+hard_dn = ta.crossunder(close, inv_hard)
+hard_up = ta.crossover(close, inv_hard)
+is_call = best_side == "C"
+
+alertcondition(in_trig and not in_trig[1], "Entered trigger zone", "Options Ladder: price entered the trigger zone — now wait for the reversal (MSB/CHoCH) to print before resting the SELL limit.")
+alertcondition(is_call ? soft_up : soft_dn, "Soft invalidation", "Options Ladder: soft invalidation level broken — trigger is off for now.")
+alertcondition(is_call ? hard_up : hard_dn, "Hard invalidation", "Options Ladder: hard invalidation level broken — the BEST strike's thesis is dead.")

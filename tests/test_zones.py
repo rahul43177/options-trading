@@ -93,5 +93,20 @@ class ClusterTests(unittest.TestCase):
             _round_arrival(100.0, 10.0, "nearest")
 
 
+
+class StructuralGapTests(unittest.TestCase):
+    def test_structural_too_close_support_and_resistance(self):
+        from research.zones import structural_too_close
+        near = {"lo": 2690.0, "hi": 2709.0, "arrival": 2709.0}
+        close = {"lo": 2683.0, "hi": 2684.0, "arrival": 2684.0}      # 6 below near.lo = 0.22%
+        far = {"lo": 2656.0, "hi": 2663.0, "arrival": 2663.0}        # 27 below = 1.0%
+        self.assertTrue(structural_too_close(near, close, 2720.0))
+        self.assertFalse(structural_too_close(near, far, 2720.0))
+        r_near = {"lo": 86554.0, "hi": 87276.0, "arrival": 86554.0}
+        r_struct = {"lo": 87400.0, "hi": 87500.0, "arrival": 87400.0}  # 124 above = 0.14%
+        self.assertTrue(structural_too_close(r_near, r_struct, 86200.0))
+        self.assertFalse(structural_too_close(None, far, 2720.0))
+
+
 if __name__ == "__main__":
     unittest.main()

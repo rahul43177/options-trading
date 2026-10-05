@@ -17,7 +17,8 @@ higher-timeframe trend, and you place every limit yourself.
 """
 from __future__ import annotations
 import argparse, datetime as dt
-from .entry_scan import load_options, band_for, _iv_of
+from .entry_scan import load_options, band_for, _iv_of, valid_hours, reach_pct
+from . import entry_scan as _es
 from .perp_analytics import underlying_atr_1h
 from .config import UNDERLYINGS, DEFAULT_BUFFER
 from . import proj_log
@@ -56,11 +57,29 @@ def _leg(arrow, verb, btc_level, pct, sign, side, confirm, o, asset="BTC"):
     print(f"       -> SHORT {side}   {o['symbol']}   |delta| {abs(o['delta']):.2f} | "
           f"OI {o['oi']:.0f} | spread {o['spr_pct']:.1f}%"
           + ("  [THIN OI — hard to exit]" if o["oi"] < 15 else ""))
+    nd = 0 if (o.get("ask") or 0) >= 100 else 2           # ETH premiums need decimals
     if b:
-        print(f"          REST a maker SELL limit ~{b['floor']:.0f}   (fills even on a slow grind into the zone)")
-        print(f"          expected at zone ~{b['base']:.0f}   ·   up to ~{b['ceiling']:.0f} if {asset} spikes in fast")
-    print(f"          (current ask is only ~{o['ask']:.0f} — selling there NOW, before the zone, "
-          f"sells too cheap and rides the move up)")
+        if b.get("capped"):
+            print(f"          REST a maker SELL limit ~{b['floor']:.{nd}f}  (= today's ask; on a late arrival the zone premium is only"
+                  f" ~{b['floor_raw']:.{nd}f} — theta beats the move, so waiting buys location, not premium)")
+        else:
+            print(f"          REST a maker SELL limit ~{b['floor']:.{nd}f}   (priced at a LATE arrival — fills on ~3 of 4 touches)")
+        print(f"          expected at zone ~{b['base']:.{nd}f}   ·   up to ~{b['ceiling']:.{nd}f} if {asset} spikes in fast")
+        rp = reach_pct(b)
+        print(f"          valid if {asset} gets there within ~{valid_hours(b):.0f}h — later than that, re-run (theta eats it)"
+              + ("" if rp is None else f"   ·   chance {asset} reaches it before expiry ~{rp:.0f}%"))
+        if b.get("dist_atr") and b["dist_atr"] > 2:
+            print(f"          (zone is {b['dist_atr']:.1f} ATR away — least reliable estimate; re-run as {asset} approaches)")
+    if b and b.get("model") == "arrival" and b["base"] > b["floor"]:
+        tier1 = "fills less often — capped at today's ask" if b.get("capped") else "fills ~3 of 4 touches"
+        print(f"          LADDER option: half at {b['floor']:.{nd}f} ({tier1}) + half at "
+              f"{b['base']:.{nd}f} (median arrival — fills ~1 of 2)")
+    if b and b.get("capped"):
+        print(f"          (today's ask ~{o['ask']:.{nd}f} ≈ rest@ — the reason to wait is the zone + confirmation"
+              f" (safer strike), not a better price)")
+    else:
+        print(f"          (current ask is only ~{o['ask']:.{nd}f} — selling there NOW, before the zone, "
+              f"sells too cheap and rides the move up)")
 
 
 def main():
@@ -76,7 +95,9 @@ def main():
     ap.add_argument("--atr-k", type=float, default=0.5, help="net progress per hour = k x ATR(1h)")
     ap.add_argument("--iv-bump", type=float, default=0.15, help="IV expansion for the band ceiling")
     ap.add_argument("--no-log", action="store_true", help="don't append the plan to proj_log")
+    ap.add_argument("--legacy-band", action="store_true", help="old linear arrival rule instead of the arrival table")
     a = ap.parse_args()
+    _es.USE_ARRIVAL_MODEL = not a.legacy_band
     if a.buffer is None:
         a.buffer = DEFAULT_BUFFER[a.asset]
 
@@ -89,7 +110,7 @@ def main():
     print("=" * 84)
     print(f"  {a.asset} WATCH PLAN   |   spot now {spot:,.0f}   |   read-only, you confirm + place the limit")
     atr_txt = f"ATR(1h) {atr_1h:,.0f} -> theta-aware band" if atr_1h else "ATR unavailable (instantaneous band)"
-    print(f"  {atr_txt}   |   rest@floor = slow arrival / flat IV; ceiling = fast + IV +{a.iv_bump*100:.0f}%")
+    print(f"  {atr_txt}   |   rest@ = late (75th-pct) arrival, fills ~3 of 4 touches; ceiling = early + IV +{a.iv_bump*100:.0f}%")
     print("=" * 84)
 
     c = best(opts, "CALL", a.resistance, a.buffer, a.dmin, a.dmax, a.max_hours, a.min_oi, spot, atr_1h, a.atr_k, a.iv_bump)
@@ -104,9 +125,9 @@ def main():
                 proj_log.log_projection(o["symbol"], o["strike"], side, spot, zone,
                                         _iv_of(o), o["dte_h"], o["band"], atr_1h, a.atr_k, a.iv_bump)
 
-    print("\n  Rest the maker SELL at the FLOOR of the band — it fills even if price grinds in slowly,")
-    print("  and you pocket more if it spikes. If price never reaches the zone the limit never fills")
-    print("  (that's fine). Band assumes theta over the ATR-estimated travel time; a vol spike lifts")
+    print("\n  Rest the maker SELL at rest@ — priced for a LATE arrival, so it fills on ~3 of 4 touches,")
+    print("  and you pocket more if price comes in fast. If price never reaches the zone the limit never fills")
+    print("  (that's fine). Band charges theta over the EMPIRICAL arrival time (research.arrival); a vol spike lifts")
     print("  it, a stall lowers it. Don't fade the higher-timeframe trend. Not advice — you trade.\n")
 
 

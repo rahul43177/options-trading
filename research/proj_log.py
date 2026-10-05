@@ -37,8 +37,10 @@ def log_projection(symbol, strike, kind, spot, zone, iv, hours_to_expiry,
     _append({"row": "projection", "ts": ts or time.time(), "symbol": symbol,
              "strike": strike, "kind": kind, "spot": spot, "zone": zone, "iv": iv,
              "hte": hours_to_expiry, "atr_1h": atr_1h, "k": k, "iv_bump": iv_bump,
-             "floor": band["floor"], "base": band["base"], "ceiling": band["ceiling"],
-             "hours_to_zone": band["hours_to_zone"]})
+             "floor": band.get("floor_raw", band["floor"]), "base": band["base"], "ceiling": band["ceiling"],
+             "rest_capped_at_ask": bool(band.get("capped")),
+             "hours_to_zone": band["hours_to_zone"], "model": band.get("model", "legacy"),
+             "valid_hours": band.get("valid_hours"), "p_hit": band.get("p_hit")})
 
 
 def mark_realized(symbol, strike, kind, spot, mark, hours_to_expiry, iv=None, ts=None) -> None:

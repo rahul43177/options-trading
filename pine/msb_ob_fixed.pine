@@ -1,0 +1,207 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © EmreKb — original "Market Structure Break & Order Block" (MSB-OB).
+//
+// Modified copy (2026-10-05), same MPL-2.0 licence. Detection logic — zigzag, MSB, and which
+// candle becomes the OB/BB/MB — is UNCHANGED. Only box management and alerts changed:
+//   1. Broken boxes are removed by INDEX. The original f_delete_box() always shifted the OLDEST
+//      box out of the array, so with several live boxes the wrong one disappeared.
+//   2. The Be-OB loop was missing an `else`, so a box that had just broken still fired
+//      "Price in the BE-OB zone". All four box types now share one helper with identical logic.
+//   3. Box arrays start empty (the original seeded 5 `na` boxes that every loop had to skip).
+//   4. A box keeps extending while price is INSIDE it (the original froze the right edge
+//      whenever price was in the zone).
+//   5. Zone alerts fire at most once per bar close instead of on every realtime tick.
+//   6. "Max live boxes per type" caps each list so old unbroken boxes can't pile up past the
+//      drawing limit (oldest is dropped first).
+// Signals are still confirmed only after a swing completes, so MSB labels/boxes are drawn back
+// in time by design. Set alerts to "Once Per Bar Close".
+
+//@version=5
+indicator("Market Structure Break & Order Block (fixed)", "MSB-OB fx", overlay=true, max_lines_count=500, max_bars_back=4900, max_boxes_count=500)
+
+settings = "Settings"
+zigzag_len = input.int(9, "ZigZag Length", group=settings)
+show_zigzag = input.bool(true, "Show Zigzag", group=settings)
+fib_factor = input.float(0.33, "Fib Factor for breakout confirmation", 0, 1, 0.01, group=settings)
+
+text_size = input.string(size.tiny, "Text Size", [size.tiny, size.small, size.normal, size.large, size.huge], group=settings)
+
+delete_boxes = input.bool(true, "Delete Old/Broken Boxes", group=settings)
+max_live = input.int(20, "Max live boxes per type", minval=1, maxval=100, group=settings)
+
+bu_ob_inline_color = "Bu-OB Colors"
+be_ob_inline_color = "Be-OB Colors"
+bu_bb_inline_color = "Bu-BB Colors"
+be_bb_inline_color = "Be-BB Colors"
+
+bu_ob_display_settings = "Bu-OB Display Settings"
+bu_ob_color = input.color(color.new(color.green, 70), "Color", group=bu_ob_display_settings, inline=bu_ob_inline_color)
+bu_ob_border_color = input.color(color.green, "Border Color", group=bu_ob_display_settings, inline=bu_ob_inline_color)
+bu_ob_text_color = input.color(color.green, "Text Color", group=bu_ob_display_settings, inline=bu_ob_inline_color)
+
+be_ob_display_settings = "Be-OB Display Settings"
+be_ob_color = input.color(color.new(color.red, 70), "Color", group=be_ob_display_settings, inline=be_ob_inline_color)
+be_ob_border_color = input.color(color.red, "Border Color", group=be_ob_display_settings, inline=be_ob_inline_color)
+be_ob_text_color = input.color(color.red, "Text Color", group=be_ob_display_settings, inline=be_ob_inline_color)
+
+bu_bb_display_settings = "Bu-BB & Bu-MB Display Settings"
+bu_bb_color = input.color(color.new(color.green, 70), "Color", group=bu_bb_display_settings, inline=bu_bb_inline_color)
+bu_bb_border_color = input.color(color.green, "Border Color", group=bu_bb_display_settings, inline=bu_bb_inline_color)
+bu_bb_text_color = input.color(color.green, "Text Color", group=bu_bb_display_settings, inline=bu_bb_inline_color)
+
+be_bb_display_settings = "Be-BB & Be-MB Display Settings"
+be_bb_color = input.color(color.new(color.red, 70), "Color", group=be_bb_display_settings, inline=be_bb_inline_color)
+be_bb_border_color = input.color(color.red, "Border Color", group=be_bb_display_settings, inline=be_bb_inline_color)
+be_bb_text_color = input.color(color.red, "Text Color", group=be_bb_display_settings, inline=be_bb_inline_color)
+
+
+var float[] high_points_arr = array.new_float(5)
+var int[] high_index_arr = array.new_int(5)
+var float[] low_points_arr = array.new_float(5)
+var int[] low_index_arr = array.new_int(5)
+
+// (3) start empty — no placeholder `na` boxes
+var box[] bu_ob_boxes = array.new_box()
+var box[] be_ob_boxes = array.new_box()
+var box[] bu_bb_boxes = array.new_box()
+var box[] be_bb_boxes = array.new_box()
+
+to_up = high >= ta.highest(zigzag_len)
+to_down = low <= ta.lowest(zigzag_len)
+
+trend = 1
+trend := nz(trend[1], 1)
+trend := trend == 1 and to_down ? -1 : trend == -1 and to_up ? 1 : trend
+
+last_trend_up_since = ta.barssince(to_up[1])
+low_val = ta.lowest(nz(last_trend_up_since > 0 ? last_trend_up_since : 1, 1))
+low_index = bar_index - ta.barssince(low_val == low)
+
+last_trend_down_since = ta.barssince(to_down[1])
+high_val = ta.highest(nz(last_trend_down_since > 0 ? last_trend_down_since : 1, 1))
+high_index = bar_index - ta.barssince(high_val == high)
+
+if ta.change(trend) != 0
+    if trend == 1
+        array.push(low_points_arr, low_val)
+        array.push(low_index_arr, low_index)
+    if trend == -1
+        array.push(high_points_arr, high_val)
+        array.push(high_index_arr, high_index)
+
+
+f_get_high(ind) =>
+    [array.get(high_points_arr, array.size(high_points_arr) - 1 - ind), array.get(high_index_arr, array.size(high_index_arr) - 1 - ind)]
+
+
+f_get_low(ind) =>
+    [array.get(low_points_arr, array.size(low_points_arr) - 1 - ind), array.get(low_index_arr, array.size(low_index_arr) - 1 - ind)]
+
+
+// (6) push a new box and drop the oldest once the list exceeds max_live
+f_push_box(box[] arr, box b) =>
+    array.push(arr, b)
+    if array.size(arr) > max_live
+        old = array.shift(arr)
+        if delete_boxes
+            box.delete(old)
+    0
+
+
+// (1)(2)(4)(5) one helper for all four box types. Walks the list from newest to oldest so a
+// removal never shifts an element that is still to be visited.
+f_manage_boxes(box[] arr, bool is_bull, string zone_msg) =>
+    if array.size(arr) > 0
+        for i = array.size(arr) - 1 to 0
+            b = array.get(arr, i)
+            top = box.get_top(b)
+            bottom = box.get_bottom(b)
+            broken = is_bull ? close < bottom : close > top
+            if broken
+                if delete_boxes
+                    box.delete(b)
+                array.remove(arr, i)
+            else
+                if close <= top and close >= bottom
+                    alert(zone_msg, alert.freq_once_per_bar_close)
+                box.set_right(b, bar_index + 10)
+    0
+
+
+[h0, h0i] = f_get_high(0)
+[h1, h1i] = f_get_high(1)
+
+[l0, l0i] = f_get_low(0)
+[l1, l1i] = f_get_low(1)
+
+if ta.change(trend) != 0 and show_zigzag
+    if trend == 1
+        line.new(h0i, h0, l0i, l0)
+    if trend == -1
+        line.new(l0i, l0, h0i, h0)
+
+market = 1
+market := nz(market[1], 1)
+last_l0 = ta.valuewhen(ta.change(market) != 0, l0, 0)
+last_h0 = ta.valuewhen(ta.change(market) != 0, h0, 0)
+market := last_l0 == l0 or last_h0 == h0 ? market : market == 1 and l0 < l1 and l0 < l1 - math.abs(h0 - l1) * fib_factor ? -1 : market == -1 and h0 > h1 and h0 > h1 + math.abs(h1 - l0) * fib_factor ? 1 : market
+
+bu_ob_index = bar_index
+bu_ob_index := nz(bu_ob_index[1], bar_index)
+for i=h1i to l0i[zigzag_len]
+    index = bar_index - i
+    if open[index] > close[index]
+        bu_ob_index := bar_index[index]
+
+bu_ob_since = bar_index - bu_ob_index
+
+be_ob_index = bar_index
+be_ob_index := nz(be_ob_index[1], bar_index)
+for i=l1i to h0i[zigzag_len]
+    index = bar_index - i
+    if open[index] < close[index]
+        be_ob_index := bar_index[index]
+
+be_ob_since = bar_index - be_ob_index
+
+be_bb_index = bar_index
+be_bb_index := nz(be_bb_index[1], bar_index)
+for i=h1i - zigzag_len to l1i
+    index = bar_index - i
+    if open[index] > close[index]
+        be_bb_index := bar_index[index]
+
+be_bb_since = bar_index - be_bb_index
+
+bu_bb_index = bar_index
+bu_bb_index := nz(bu_bb_index[1], bar_index)
+for i=l1i - zigzag_len to h1i
+    index = bar_index - i
+    if open[index] < close[index]
+        bu_bb_index := bar_index[index]
+
+bu_bb_since = bar_index - bu_bb_index
+
+if ta.change(market) != 0
+    if market == 1
+        line.new(h1i, h1, h0i, h1, color=color.green, width=2)
+        label.new(int(math.avg(h1i, l0i)), h1, "MSB", color=color.new(color.black, 100), style=label.style_label_down, textcolor=color.green, size=size.small)
+        bu_ob = box.new(bu_ob_index, high[bu_ob_since], bar_index + 10, low[bu_ob_since], bgcolor=bu_ob_color, border_color=bu_ob_border_color, text="Bu-OB", text_color=bu_ob_text_color, text_halign=text.align_right, text_size=text_size)
+        bu_bb = box.new(bu_bb_index, high[bu_bb_since], bar_index + 10, low[bu_bb_since], bgcolor=bu_bb_color, border_color=bu_bb_border_color, text=l0 < l1 ? "Bu-BB" : "Bu-MB", text_color=bu_bb_text_color, text_halign=text.align_right, text_size=text_size)
+        f_push_box(bu_ob_boxes, bu_ob)
+        f_push_box(bu_bb_boxes, bu_bb)
+    if market == -1
+        line.new(l1i, l1, l0i, l1, color=color.red, width=2)
+        label.new(int(math.avg(l1i, h0i)), l1, "MSB", color=color.new(color.black, 100), style=label.style_label_up, textcolor=color.red, size=size.small)
+        be_ob = box.new(be_ob_index, high[be_ob_since], bar_index + 10, low[be_ob_since], bgcolor=be_ob_color, border_color=be_ob_border_color, text="Be-OB", text_color=be_ob_text_color, text_halign=text.align_right, text_size=text_size)
+        be_bb = box.new(be_bb_index, high[be_bb_since], bar_index + 10, low[be_bb_since], bgcolor=be_bb_color, border_color=be_bb_border_color, text=h0 > h1 ? "Be-BB" : "Be-MB", text_color=be_bb_text_color, text_halign=text.align_right, text_size=text_size)
+        f_push_box(be_ob_boxes, be_ob)
+        f_push_box(be_bb_boxes, be_bb)
+
+f_manage_boxes(bu_ob_boxes, true, "Price in the BU-OB zone")
+f_manage_boxes(be_ob_boxes, false, "Price in the BE-OB zone")
+f_manage_boxes(bu_bb_boxes, true, "Price in the BU-BB zone")
+f_manage_boxes(be_bb_boxes, false, "Price in the BE-BB zone")
+
+
+alertcondition(ta.change(market) != 0, "MSB", "MSB")

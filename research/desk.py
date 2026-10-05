@@ -22,8 +22,8 @@ a premium seller is actually paid to judge:
 
 Every number here is a DISCIPLINED RANKING, not a validated edge: the stored evidence base is
 still COLLECTING (see ``research.readiness``), the RV proxy is ATR-derived and biased high, the
-EV model assumes delta ~ P(ITM) and a fixed-multiple stop, and fees / taxes / margin are NOT
-modeled beyond spread. It never places, modifies, or cancels an order.
+EV model assumes delta ~ P(ITM) and a fixed-multiple stop; EV is net of Delta's fee rule
+(research.fees) but margin/liquidation is NOT modeled (see research.positions). It never places, modifies, or cancels an order.
 
     python -m research.desk --context /tmp/ctx.json            # human desk table
     python -m research.desk --context /tmp/ctx.json --json     # machine-readable
@@ -41,6 +41,8 @@ from .config import UNDERLYINGS
 from .entry_scan import load_options
 from .perp_analytics import underlying_atr_1h, hours_to_zone
 from . import engine as _engine
+from . import fees as _fees
+from . import arrival as _arrival
 
 HOURS_PER_YEAR = 24 * 365
 
@@ -108,12 +110,29 @@ def _range_grade(abs_delta: float, cushion_sigma: float | None, aligned: bool) -
     }
 
 
+# Typical take-profit used for the fee estimate on winners (the user's journal: median ~30-50% of
+# the credit captured, closed well before expiry), so a win usually pays a closing fee too.
+TYPICAL_TAKE_PROFIT = 0.5
+
+
+def fee_drag_per_credit(abs_delta: float, fee_rate: float) -> float:
+    """Expected fees per unit of credit (Delta rule, incl. GST). Pure (unit-tested).
+
+    Opening fee = fee_rate x credit. Closing: a win buys back at ~(1-TYPICAL_TAKE_PROFIT) of the
+    credit (prob ~1-|d|); a loss buys back at STOP_CREDIT_MULTIPLE x credit (prob ~|d|).
+    """
+    close = (1.0 - abs_delta) * (1.0 - TYPICAL_TAKE_PROFIT) + abs_delta * STOP_CREDIT_MULTIPLE
+    return fee_rate * (1.0 + close)
+
+
 def _premium_grade(abs_delta: float, iv: float | None, rv_proxy: float | None,
-                   spread_pct: float) -> tuple[float, dict]:
-    """0-10. Modeled EV per credit, IV-vs-RV regime, and exit friction."""
+                   spread_pct: float, fee_rate: float = 0.0) -> tuple[float, dict]:
+    """0-10. Modeled EV per credit NET of Delta fees, IV-vs-RV regime, and exit friction."""
     # EV per unit of credit under a credit-multiple stop: win keeps 1 credit (prob ~ 1-|d|),
     # loss gives back STOP_CREDIT_MULTIPLE credits (prob ~ |d|, delta as a P(ITM) proxy).
-    ev_per_credit = (1.0 - abs_delta) - abs_delta * STOP_CREDIT_MULTIPLE
+    ev_gross = (1.0 - abs_delta) - abs_delta * STOP_CREDIT_MULTIPLE
+    drag = fee_drag_per_credit(abs_delta, fee_rate)
+    ev_per_credit = ev_gross - drag                       # NET of fees (was ignored before)
     score_ev = _clamp(ev_per_credit / 0.70 * 5.0, 0, 5)  # EV 0.70 (|d|~0.10) -> full marks
     ratio = (iv / rv_proxy) if (iv and rv_proxy and rv_proxy > 0) else None
     # Only a RICH IV (vs realized) is a seller's vol edge. Cheap IV (ratio<~0.9) scores 0.
@@ -129,6 +148,9 @@ def _premium_grade(abs_delta: float, iv: float | None, rv_proxy: float | None,
     grade = score_ev + score_ivrv + score_fr
     return round(grade, 2), {
         "ev_per_credit": round(ev_per_credit, 2),
+        "ev_per_credit_gross": round(ev_gross, 2),
+        "fee_drag_per_credit": round(drag, 3),
+        "fee_rate_per_side": round(fee_rate, 4),
         "iv": None if iv is None else round(iv, 3),
         "rv_proxy_annual": None if rv_proxy is None else round(rv_proxy, 3),
         "iv_over_rv": None if ratio is None else round(ratio, 2),
@@ -165,8 +187,20 @@ def _date_grade(hours: float, reachable: bool | None, weekend_span: bool) -> tup
     }, gamma_danger
 
 
+def max_units_for_risk(credit: float, equity: float, risk_pct: float, spot: float | None,
+                       stop_multiple: float = STOP_CREDIT_MULTIPLE) -> float | None:
+    """Underlying units you can short so a stop at stop_multiple x credit loses <= risk_pct of
+    equity, fees included (open + stop buyback). Pure (unit-tested)."""
+    if not credit or credit <= 0 or not equity or equity <= 0 or not risk_pct or risk_pct <= 0:
+        return None
+    loss_per_unit = credit * (stop_multiple - 1.0) + _fees.option_fee(credit, 1.0, spot) \
+        + _fees.option_fee(credit * stop_multiple, 1.0, spot)
+    return equity * risk_pct / 100.0 / loss_per_unit
+
+
 def _rate(cand: dict[str, Any], row: dict[str, Any], setup: dict[str, Any],
-          atr_1h: float | None, now: datetime) -> dict[str, Any]:
+          atr_1h: float | None, now: datetime, sizing: dict[str, Any] | None = None,
+          held: dict[str, float] | None = None) -> dict[str, Any]:
     side = cand["side"]
     abs_delta = abs(cand["delta"])
     spot = row.get("spot")
@@ -186,16 +220,26 @@ def _rate(cand: dict[str, Any], row: dict[str, Any], setup: dict[str, Any],
     # same fallback as the engine's gate: a single "zone" stands in for zone_low/zone_high
     zone = setup.get("zone_high" if side == "CALL" else "zone_low", setup.get("zone"))
     reachable = None
+    p_arrive = None
     if zone is not None and spot is not None and atr_1h:
-        hz = hours_to_zone(spot, float(zone), atr_1h)
-        reachable = (hz is not None and hz < hours)
+        table = _arrival.load_table()
+        arr = _arrival.lookup(abs(float(zone) - spot) / atr_1h, hours, table) if table else None
+        if arr:                                  # empirical: P(touch before expiry) >= 50%
+            p_arrive = round(arr["p_hit"], 2)
+            reachable = arr["p_hit"] >= 0.5
+        else:                                    # legacy linear fallback
+            hz = hours_to_zone(spot, float(zone), atr_1h)
+            reachable = (hz is not None and hz < hours)
 
     expiry = row.get("expiry")
     weekend_span = bool(expiry and expiry.weekday() >= 5)  # Sat/Sun expiry = weekend-dominated window
 
     range_grade, range_detail = _range_grade(abs_delta, cushion_sigma, aligned)
-    premium_grade, premium_detail = _premium_grade(abs_delta, iv, rv_proxy, spread_pct)
+    credit = cand.get("bid") or ((cand["bid"] + cand["ask"]) / 2 if cand.get("ask") else None)
+    fee_rate = _fees.option_fee_rate(credit, spot) if credit else 0.0
+    premium_grade, premium_detail = _premium_grade(abs_delta, iv, rv_proxy, spread_pct, fee_rate)
     date_grade, date_detail, gamma_danger = _date_grade(hours, reachable, weekend_span)
+    date_detail["p_arrive"] = p_arrive
 
     composite = W_RANGE * range_grade + W_PREMIUM * premium_grade + W_DATE * date_grade
 
@@ -220,6 +264,28 @@ def _rate(cand: dict[str, Any], row: dict[str, Any], setup: dict[str, Any],
     if cand.get("oi", 0) < 25:
         flags.append(f"thin OI {cand.get('oi'):.0f} (marginal exit depth)")
 
+    # ---- what you already hold (concentration) -----------------------------------------
+    held = held or {}
+    already = held.get(cand["symbol"])
+    same_side = {s: q for s, q in held.items() if s != cand["symbol"]
+                 and s.split("-")[1:2] == [cand["asset"]] and s[:1] == cand["symbol"][:1]}
+    if already:
+        flags.append(f"ALREADY HELD ({already:+g}) — adding doubles the same bet; size the add within your risk")
+    elif same_side:
+        flags.append("same asset+side already held (" + ", ".join(f"{s} {q:+g}" for s, q in same_side.items())
+                     + ") — correlated: losses would stack")
+
+    # ---- sizing: how much can you sell so a 2x-credit stop stays within risk -----------
+    sizing_out = None
+    if sizing and credit:
+        units = max_units_for_risk(credit, sizing.get("equity"), sizing.get("risk_pct", 2.0), spot)
+        cv = row.get("contract_value") or None
+        if units is not None:
+            sizing_out = {"equity": sizing.get("equity"), "risk_pct": sizing.get("risk_pct", 2.0),
+                          "max_units": round(units, 4),
+                          "max_lots": int(units / cv) if cv else None,
+                          "loss_at_stop_per_unit": round(credit * (STOP_CREDIT_MULTIPLE - 1.0), 4)}
+
     return {
         "symbol": cand["symbol"], "asset": cand["asset"], "side": side,
         "strike": strike, "expiry_hours": round(hours, 1),
@@ -232,6 +298,7 @@ def _rate(cand: dict[str, Any], row: dict[str, Any], setup: dict[str, Any],
         "range_detail": range_detail, "premium_detail": premium_detail, "date_detail": date_detail,
         "reject_reasons": rejects, "flags": flags,
         "rejected": bool(rejects),
+        "already_held": bool(already), "sizing": sizing_out,
     }
 
 
@@ -274,11 +341,17 @@ def run(context: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
     setups = context.get("setups", [])
     setup_by = dict(zip(_engine.setup_ids(setups), setups))
 
+    # Optional context fields (additive): "positions": [{"symbol": ..., "size": -2}] (what you
+    # already hold, Delta "Size" in underlying units) and "sizing": {"equity": 411, "risk_pct": 2}.
+    held = {str(p.get("symbol")): float(p.get("size") or 0) for p in (context.get("positions") or [])
+            if p.get("symbol")}
+    sizing = context.get("sizing") if isinstance(context.get("sizing"), dict) else None
+
     rated: list[dict[str, Any]] = []
     for c in eligible:
         row = rows_by_symbol.get(c["symbol"], {})
         setup = setup_by.get(c["setup_id"], {})
-        rated.append({**_rate(c, row, setup, atr.get(c["asset"]), now),
+        rated.append({**_rate(c, row, setup, atr.get(c["asset"]), now, sizing, held),
                       "setup_id": c["setup_id"], "band": c.get("band")})
 
     survivors = [r for r in rated if not r["rejected"]]
@@ -302,6 +375,12 @@ def run(context: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
         for r in rated:
             r["verdict"] = "REJECT" if r["rejected"] else "ALT"
 
+    # If the best is a contract you already hold, also surface the best one you DON'T hold, so the
+    # read never silently recommends doubling an existing position.
+    best_not_held = None
+    if best and best.get("already_held"):
+        best_not_held = next((r for r in survivors if not r.get("already_held")), None)
+
     reconciliation = _reconcile(eng.get("best_candidate") or {}, best)
     return {
         "mode": "READ_ONLY_RESEARCH_DESK_RATING",
@@ -309,6 +388,7 @@ def run(context: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
         "engine_decision": eng["decision"],
         "best": best,
         "best_is_conditional": conditional,
+        "best_not_held": best_not_held,
         "reconciliation": reconciliation,
         "candidates": rated,
         "weights": {"range": W_RANGE, "premium": W_PREMIUM, "date": W_DATE},
@@ -317,7 +397,7 @@ def run(context: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
             "Grades are a disciplined RANKING, not a validated edge (evidence base is COLLECTING).",
             "RV proxy is ATR-based and biased HIGH; IV/RV is a regime read, not a vega forecast.",
             "EV/credit assumes delta~P(ITM) and a fixed credit-multiple stop; a model, not a promise.",
-            "Fees, taxes, and margin are NOT modeled beyond spread (see ENGINE_AUDIT.md).",
+            "EV is NET of Delta fees (min(0.01% notional, 3.5% premium) + 18% GST); margin/liquidation is NOT modeled here — use research.positions for held shorts.",
         ],
     }
 
@@ -348,11 +428,22 @@ def _print_human(res: dict[str, Any]) -> None:
         print(f"    RANGE {b['range']}: P(OTM)~{b['range_detail']['p_expire_otm']}, "
               f"cushion {b['range_detail']['cushion_expected_moves']} expected-moves, "
               f"{'trend-aligned' if b['range_detail']['trend_aligned'] else 'COUNTER-TREND'}")
-        print(f"    PREM  {b['premium']}: EV {b['premium_detail']['ev_per_credit']}/credit, "
+        print(f"    PREM  {b['premium']}: EV {b['premium_detail']['ev_per_credit']}/credit net of fees "
+              f"(gross {b['premium_detail']['ev_per_credit_gross']}, fees {b['premium_detail']['fee_drag_per_credit']}), "
               f"IV/RV {b['premium_detail']['iv_over_rv']}")
         print(f"    DATE  {b['date']}: {b['date_detail']['dte_hours']}h, "
               f"gamma_danger={b['date_detail']['gamma_danger']}, "
-              f"reachable={b['date_detail']['zone_reachable_before_expiry']}")
+              f"reachable={b['date_detail']['zone_reachable_before_expiry']}"
+              + (f" (P(arrive) {b['date_detail']['p_arrive']:.0%})" if b['date_detail'].get('p_arrive') is not None else ""))
+        if b.get("sizing"):
+            z = b["sizing"]
+            print(f"    SIZE  max ~{z['max_units']:g} units"
+                  + (f" ({z['max_lots']} lots)" if z.get("max_lots") is not None else "")
+                  + f" so a 2x-credit stop loses <= {z['risk_pct']:g}% of {z['equity']:g} (fees incl.)")
+        if b.get("already_held"):
+            nb = res.get("best_not_held")
+            print("    NOTE  you ALREADY HOLD this contract — adding doubles the bet. Best you don't hold: "
+                  + (f"{nb['symbol']} [{nb.get('band') or nb['setup_id']}] ({nb['composite']}/10 {nb['letter']})" if nb else "none"))
     else:
         print("  DESK BEST: none — every eligible contract was rejected. Stand aside.")
     verdict = {

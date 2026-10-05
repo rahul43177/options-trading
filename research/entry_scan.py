@@ -14,7 +14,8 @@ decide and place their own limit. It never trades.
 from __future__ import annotations
 import argparse, datetime as dt
 from .delta_api import DeltaPublicClient
-from .pricing import project_premium, implied_vol
+from .pricing import project_premium, project_premium_arrival, implied_vol
+from . import arrival as _arrival
 from .perp_analytics import underlying_atr_1h, hours_to_zone
 from .config import UNDERLYINGS, DEFAULT_BUFFER
 from . import proj_log
@@ -25,6 +26,31 @@ def _f(x):
         return float(x)
     except (TypeError, ValueError):
         return None
+
+
+def px(v, width=7):
+    """Premium formatter: whole numbers for BTC-sized premiums, 2 decimals below 100 (ETH's
+    single-digit premiums were printed as integers, hiding e.g. 4.5 vs 4.9)."""
+    if v is None:
+        return f"{'—':>{width}}"
+    return f"{v:>{width}.0f}" if abs(v) >= 100 else f"{v:>{width}.2f}"
+
+
+def valid_hours(band, slow=1.5):
+    """How long the rest@ floor stays honest. Arrival model: the 75th-percentile arrival time
+    (rest@ is priced there). Legacy model: slow x hours_to_zone. Past it, theta has eaten the
+    premium — re-run the scan before resting a limit."""
+    if not band:
+        return None
+    if band.get("valid_hours") is not None:
+        return max(0.25, band["valid_hours"])
+    return max(1.0, band.get("hours_to_zone", 0.0) * slow)
+
+
+def reach_pct(band):
+    """P(price reaches the zone before this expiry) from the arrival table, or None (legacy)."""
+    p = (band or {}).get("p_hit")
+    return None if p is None else p * 100
 
 
 def _hours_left(o, now=None):
@@ -44,6 +70,23 @@ def _iv_of(o):
     return None
 
 
+USE_ARRIVAL_MODEL = True        # flipped off by --legacy-band
+
+
+def cap_at_ask(band, ask):
+    """A resting SELL limit priced at/below the bid fills IMMEDIATELY — i.e. you'd be short
+    before the zone, the exact mistake rest@ exists to prevent. When the late-arrival premium
+    is below today's ask (theta over the wait outweighs the move to the zone), rest@ is lifted
+    to the ask and flagged: waiting buys location/confirmation, not extra premium. Pure."""
+    if band is None or not ask or band["floor"] >= ask:
+        return band
+    band = dict(band)
+    band["floor_raw"] = band["floor"]
+    band["floor"] = band["rest_here"] = ask
+    band["capped"] = True
+    return band
+
+
 def band_for(o, zone, atr_1h, k=0.5, iv_bump=0.15):
     """Projected premium band for one option if BTC reaches `zone`. None if IV/expiry unknown.
 
@@ -56,9 +99,21 @@ def band_for(o, zone, atr_1h, k=0.5, iv_bump=0.15):
     if h is None or iv is None:
         return None
     kind = "call" if o["type"] == "CALL" else "put"
+    # Empirical arrival model (research.arrival, validated out-of-sample 05-Oct-2026: rest@ filled
+    # on 75% of real zone hits vs 48% for the legacy linear rule). Falls back to legacy if the
+    # table or ATR is missing, or when --legacy-band is passed.
+    if USE_ARRIVAL_MODEL and atr_1h and o.get("spot"):
+        table = _arrival.load_table()
+        arr = _arrival.lookup(abs(zone - o["spot"]) / atr_1h, h, table) if table else None
+        if arr:
+            band = project_premium_arrival(o["strike"], kind, iv, h, zone, arr, iv_bump=iv_bump)
+            band["dist_atr"] = abs(zone - o["spot"]) / atr_1h
+            return cap_at_ask(band, o.get("ask"))
     hz = hours_to_zone(o["spot"], zone, atr_1h, k)
     hz = 0.0 if hz is None else hz          # ATR unknown -> instantaneous fallback
-    return project_premium(o["strike"], kind, iv, h, zone, hz, iv_bump=iv_bump)
+    band = project_premium(o["strike"], kind, iv, h, zone, hz, iv_bump=iv_bump)
+    band["model"] = "legacy"
+    return band
 
 
 def _expiry(sym: str):
@@ -118,9 +173,12 @@ def main():
     ap.add_argument("--atr-k", type=float, default=0.5, help="net progress per hour = k x ATR(1h)")
     ap.add_argument("--iv-bump", type=float, default=0.15, help="IV expansion for the band ceiling (fast approach)")
     ap.add_argument("--log", action="store_true", help="append the top candidate's band to proj_log for calibration")
+    ap.add_argument("--legacy-band", action="store_true", help="old linear arrival rule (dist / 0.5 ATR) instead of the arrival table")
     a = ap.parse_args()
     if a.buffer is None:
         a.buffer = DEFAULT_BUFFER[a.asset]
+    global USE_ARRIVAL_MODEL
+    USE_ARRIVAL_MODEL = not a.legacy_band
 
     now = dt.datetime.now(dt.timezone.utc)
     opts = load_options(a.asset)
@@ -133,7 +191,9 @@ def main():
           f"buffer ${a.buffer:,.0f}, <= {a.max_hours:.0f}h, min OI {a.min_oi:.0f}")
     if a.zone is not None:
         atr_txt = f"ATR(1h) {atr_1h:,.0f}" if atr_1h else "ATR unavailable (instantaneous proj)"
-        print(f"  {atr_txt}  |  band = rest@ (slow, IV flat) / base (expected) / fast (IV +{a.iv_bump*100:.0f}%)")
+        model = ("arrival table (empirical, 75%-fill rest@)" if (not a.legacy_band and _arrival.load_table())
+                 else "legacy linear arrival")
+        print(f"  {atr_txt}  |  band = rest@ (late arrival) / base (median) / fast (early + IV +{a.iv_bump*100:.0f}%)  |  {model}")
     print("=" * 96)
 
     for side in (["CALL", "PUT"] if a.side == "both" else [a.side.upper()]):
@@ -166,19 +226,23 @@ def main():
         hdr = (f"  {'contract':<20} {'exp(h)':>6} {'bid':>7} {'ask':>7} {'mid':>7} "
                f"{'spr':>5} {'spr%':>6} {'|d|':>5} {'IV%':>5} {'OI':>8} {'dist$':>7}")
         if a.zone is not None:
-            hdr += f" {'rest@':>7} {'base':>7} {'fast':>7}"
+            hdr += f" {'rest@':>7} {'base':>7} {'fast':>7} {'valid':>6} {'reach':>6}"
         print(hdr)
         print("  " + "-" * (len(hdr) - 2))
         if not rows:
             print("   (no contracts match — widen --dmax, raise --max-hours, or lower --buffer/--min-oi)")
         for o in rows[:a.top]:
-            line = (f"  {o['symbol']:<20} {o['dte_h']:>6.1f} {o['bid']:>7.0f} {o['ask']:>7.0f} "
-                    f"{o['mid']:>7.0f} {o['spread']:>5.0f} {o['spread_pct']:>5.1f}% "
+            line = (f"  {o['symbol']:<20} {o['dte_h']:>6.1f} {px(o['bid'])} {px(o['ask'])} "
+                    f"{px(o['mid'])} {px(o['spread'], 5)} {o['spread_pct']:>5.1f}% "
                     f"{abs(o['delta']):>5.2f} {(o['iv'] or 0) * 100:>5.1f} {o['oi']:>8.1f} {o['dist']:>7.0f}")
             if a.zone is not None:
                 b = o.get("band")
-                line += (f" {b['floor']:>7.0f} {b['base']:>7.0f} {b['ceiling']:>7.0f}"
-                         if b else f" {'—':>7} {'—':>7} {'—':>7}")
+                vh = valid_hours(b)
+                rp = reach_pct(b)
+                fl = px(b['floor'], 6) + ("*" if b.get("capped") else " ")
+                line += (f" {fl} {px(b['base'])} {px(b['ceiling'])} {('≤' + format(vh, '.0f') + 'h'):>6}"
+                         f" {('—' if rp is None else format(rp, '.0f') + '%'):>6}"
+                         if b else f" {'—':>7} {'—':>7} {'—':>7} {'—':>6} {'—':>6}")
             print(line)
 
         if a.log and a.zone is not None and rows and rows[0].get("band"):
@@ -190,6 +254,14 @@ def main():
     print("\n  spr% = (ask-bid)/mid. High spr% or low OI = illiquid, hard to exit.")
     print("  rest@ = the premium to REST a maker SELL limit at (slow arrival, flat IV — fills even")
     print("  on a grind).  base = expected at the zone.  fast = if price spikes in with IV expanding.")
+    print("  rest@ is priced at the LATE (75th-pct) arrival, so it fills on ~3 of 4 zone touches; base =")
+    print("  median arrival. valid = that late-arrival time — not touched by then? re-run before resting.")
+    print("  reach = chance price touches the zone before this expiry (empirical, 60d Delta candles).")
+    print("  * = rest@ lifted to today's ask: on a late arrival the premium would be LOWER than now (theta >")
+    print("  move), so waiting buys location/confirmation, not premium — and a lower limit would fill NOW.")
+    print("  Zones > 2 ATR away are the least reliable (fewer fills) — re-run as price approaches.")
+    print("  Fees: Delta charges min(0.01% of notional, 3.5% of premium) per side + 18% GST — on these")
+    print("  strikes ~4.1% of premium each way, so a 50% take-profit keeps ~44% of the credit net.")
     print("  Don't market-short at the current ask before price reaches the zone. Not advice — you trade.\n")
 
 

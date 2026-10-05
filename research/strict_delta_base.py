@@ -10,6 +10,7 @@ from pathlib import Path
 from .config import ROOT
 from .delta_api import DeltaPublicClient
 from .backtest import load_candles
+from .fees import option_fee
 
 START_INR=20_000.; FX=85.; HOLD=48*3600; BASE_THRESHOLD=500.; BASE_DISTANCE=1000.
 TP_LEVELS=(.25,.50,.60,.70,.75,.80,.90); STOP_MULTIPLES=(1.5,2.,2.5,3.,4.,5.)
@@ -40,7 +41,10 @@ class Replay:
 def execution(entry,exit,fee,model):
  # Worst-price adjustment to MARK: conservative 5bp, stress 25bp each leg.
  bps={'MARK':0,'CONSERVATIVE':5,'STRESS':25}[model]/10000
- e=entry*(1-bps);x=exit*(1+bps);return e,x,(e+x)*fee
+ # Fee per unit of underlying, Delta's real rule (research.fees): min(0.01% notional, 3.5% premium)
+ # + GST. No spot here, so the 3.5%-of-premium cap is used — exact for the OTM strikes traded and
+ # never optimistic. (The old `(e+x)*fee` applied the notional RATE to the premium: ~350x too low.)
+ e=entry*(1-bps);x=exit*(1+bps);return e,x,option_fee(e,1.0)+option_fee(x,1.0)
 def pnl_short(entry,exit,cv,fee,model='MARK'):
  e,x,fees=execution(entry,exit,fee,model);return (e-x-fees)*cv,fees
 def metrics(trades):
@@ -77,7 +81,7 @@ def main():
   elif exit_t==settle and p.get('settlement_price') is not None:exit=float(p['settlement_price']);mechanism='SETTLEMENT_EXIT'
   else:logs.append({**details,'status':'MISSING_EXIT','entry_mark_usd':entry});continue
   between=[v for t,v in path.items() if entry_t<=t<=exit_t];cv=float(p['contract_value']);fee=float(p.get('taker_commission_rate') or .0001);net_usd,fees=pnl_short(entry,exit,cv,fee)
-  logs.append({**details,'status':'COMPLETED','entry_mark_usd':entry,'exit_mark_usd':exit,'exit_mechanism':mechanism,'gross_pnl_inr':(entry-exit)*cv*FX,'entry_fee_inr':entry*cv*fee*FX,'exit_fee_inr':exit*cv*fee*FX,'fee_inr':fees*cv*FX,'slippage_inr':0,'net_pnl_inr':net_usd*FX,'mae_inr':max(0,max(between)-entry)*cv*FX,'mfe_inr':max(0,entry-min(between))*cv*FX,'max_option_mark_usd':max(between),'min_option_mark_usd':min(between)})
+  logs.append({**details,'status':'COMPLETED','entry_mark_usd':entry,'exit_mark_usd':exit,'exit_mechanism':mechanism,'gross_pnl_inr':(entry-exit)*cv*FX,'entry_fee_inr':option_fee(entry,cv)*FX,'exit_fee_inr':option_fee(exit,cv)*FX,'fee_inr':fees*cv*FX,'slippage_inr':0,'net_pnl_inr':net_usd*FX,'mae_inr':max(0,max(between)-entry)*cv*FX,'mfe_inr':max(0,entry-min(between))*cv*FX,'max_option_mark_usd':max(between),'min_option_mark_usd':min(between)})
  # Chronological base account: one position at a time, exactly as a ₹20k sequential account.
  completed=sorted((x for x in logs if x['status']=='COMPLETED'),key=lambda x:x['signal_utc']);eligible=[];open_until=''
  for x in completed:

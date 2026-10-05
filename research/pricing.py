@@ -52,3 +52,22 @@ def project_premium(strike:float,kind:str,iv:float,hours_to_expiry:float,zone:fl
     base   =_reprice(zone,strike,hours_to_expiry-hz,iv,kind)
     ceiling=_reprice(zone,strike,hours_to_expiry-hz*fast,iv*(1+iv_bump),kind)
     return {"floor":floor,"base":base,"ceiling":ceiling,"rest_here":floor,"hours_to_zone":hz}
+
+
+def project_premium_arrival(strike:float,kind:str,iv:float,hours_to_expiry:float,zone:float,
+                            arrival:dict,iv_bump:float=0.15)->dict:
+    """Premium band WHEN spot reaches `zone`, timed by the EMPIRICAL arrival distribution
+    (research.arrival): fast = 25th-pct arrival (+IV bump), base = median, floor = 75th pct.
+
+    Calibrated 05-Oct-2026: the reprice is accurate once the arrival time is right (median
+    error +3.8% with the true arrival; IV at the touch ~flat), and the arrival quantiles hit
+    0.29/0.50/0.74 out-of-sample. So rest@ (floor) is at-or-below the premium on ~75% of the
+    times price actually reaches the zone. `valid_hours` = that 75th-pct arrival time.
+    """
+    h=hours_to_expiry
+    q25=min(arrival["q25"],h*0.98); q50=min(arrival["q50"],h*0.98); q75=min(arrival["q75"],h*0.98)
+    floor  =_reprice(zone,strike,h-q75,iv,kind)
+    base   =_reprice(zone,strike,h-q50,iv,kind)
+    ceiling=_reprice(zone,strike,h-q25,iv*(1+iv_bump),kind)
+    return {"floor":floor,"base":base,"ceiling":ceiling,"rest_here":floor,"hours_to_zone":q50,
+            "valid_hours":max(q75,0.25),"p_hit":arrival.get("p_hit"),"model":"arrival"}

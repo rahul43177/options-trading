@@ -1,0 +1,680 @@
+// Options Short Ladder (Auto) — a self-contained, on-chart version of the /options-entry ladder.
+// READ-ONLY decision support: it plots levels, a status and MODEL strikes, and raises alerts.
+// It never places, modifies or cancels an order, and it is not financial advice.
+//
+// What it computes on the chart (no paste needed):
+//   * Zones   — same clustering as research.zones (NEAR band reached first, STRUCTURAL band with
+//               more cushion, per side) over 1h EMA20/50/200, 1h & 4h Bollinger(20,2) and classic daily
+//               pivots. Differences: no volume-profile POC/VAH/VAL (Pine can't build it), optional
+//               previous-day high/low. Use Delta's BTCUSD.P / ETHUSD.P so levels match the scanner.
+//   * Bias    — Weekly / Daily / 4h / 1h EMA20-vs-EMA50 trend from CONFIRMED higher-TF bars
+//               (no repaint). Weekly+Daily agree → favoured side (bullish → PUT shorts).
+//   * Status  — WAIT → ARMED (price within N×ATR of the near band; the plan FREEZES once the band is touched) →
+//               VALID (band touched + chart-TF break of the last N-bar high/low) → INVALID (close
+//               through the near band). Counter-trend side is never the BEST.
+//   * Strikes — on Delta's strike grid, beyond (near arrival ± buffer). BEST = first strike past the
+//               structural shelf (+ gap) whose |delta| is inside the band; ALT = |delta| closest to the
+//               scanner target. Delta / premium / P(OTM) are Black-Scholes using Deribit DVOL (or a
+//               manual IV) — a MODEL, not a quote.
+//
+// DIRECTION panel — one answer: SELL PUTS / SELL CALLS / STAND ASIDE. Same rules as
+// research/direction.py: 2×Weekly + 2×Daily + 4h + 1h trend + 4h structure (swing break) + 30-day
+// volume-profile POC + 24h order-flow proxy (candle delta) → score −9…+9; ≥+3 = puts, ≤−3 = calls,
+// and it never fights the Weekly/Daily trend. Backtest (Delta BTC 1h, Aug-2024 → Oct-2026, 18,913
+// decisions, 1-EM 48h strikes): chosen side expired OTM 88.9% vs 84.6% for the wrong side (~1.4x the
+// losers on the wrong side); design half +3.5 pts, untouched test half +5.1 pts. PUT signals are the
+// robust part; CALL signals lost in the bull-market half. It is a lean on which side is SAFER to sell,
+// not a price forecast (price moved the signalled way only ~50% of the time).
+//
+// What it CANNOT know: Delta's live bid/ask, OI, spread, or whether a strike is listed on that
+// expiry. Always check those on Delta before acting. Use on a ≤1h chart (5m/15m ideal).
+// Alerts: set "Once Per Bar Close".
+
+//@version=5
+indicator("Options Short Ladder (Auto)", "OPT-AUTO", overlay=true, max_boxes_count=20, max_lines_count=40, max_labels_count=40, max_bars_back=5000)
+
+// ============================================================== inputs
+g_asset = "Asset"
+asset_mode = input.string("Auto", "Asset", ["Auto", "BTC", "ETH", "Custom"], group=g_asset, tooltip="Auto reads the chart symbol. BTC: strikes every 200, buffer 1000, zones rounded to 100. ETH: 10 / 40 / 10.")
+c_step = input.float(200, "Custom strike step", minval=0.01, group=g_asset)
+c_buffer = input.float(1000, "Custom buffer beyond the zone", minval=0, group=g_asset)
+c_round = input.float(100, "Custom zone rounding", minval=0.01, group=g_asset)
+
+g_exp = "Expiry & volatility"
+exp_days = input.int(2, "Expiry: days ahead (1 = next expiry)", minval=1, maxval=30, group=g_exp, tooltip="Delta daily options expire at the hour below (UTC). 2 = the expiry after next.")
+exp_hour = input.int(12, "Expiry hour (UTC)", minval=0, maxval=23, group=g_exp)
+iv_mode = input.string("DVOL", "IV source", ["DVOL", "Manual"], group=g_exp, tooltip="DVOL = Deribit 30-day implied-vol index (DERIBIT:DVOL / DERIBIT:ETHDVOL). Falls back to Manual if unavailable.")
+iv_manual = input.float(30.0, "Manual IV % (also the fallback)", minval=1, group=g_exp)
+iv_mult = input.float(0.8, "IV multiplier (short-dated vs DVOL)", minval=0.1, maxval=3, step=0.05, group=g_exp, tooltip="DVOL is a 30-day index; Delta's 1-3 day options usually trade below it (04-Oct-2026: DVOL 35.8% vs ~28% on the 06-Oct chain → 0.8). Compare one model premium with Delta's bid/ask and adjust.")
+
+g_sel = "Strike selection"
+dmin = input.float(0.10, "Min |delta|", minval=0.01, maxval=0.5, step=0.01, group=g_sel)
+dmax = input.float(0.22, "Max |delta|", minval=0.02, maxval=0.6, step=0.01, group=g_sel)
+dtarget = input.float(0.16, "Scanner target |delta| (ALT)", minval=0.01, maxval=0.5, step=0.01, group=g_sel)
+shelf_gap_atr = input.float(0.5, "BEST: gap past the structural shelf (× 4h ATR)", minval=0, step=0.1, group=g_sel)
+gamma_h = input.float(18, "Reject expiries under (hours) — gamma danger", minval=0, group=g_sel)
+listed_in = input.string("", "Listed strikes on Delta (optional)", group=g_sel, tooltip="Type the strikes Delta lists for your expiry, comma-separated, e.g. 82400,82800,83200,83800,84000,84200. BEST/ALT then pick ONLY real contracts. Delta's far-OTM strikes are irregular (06-Oct-2026 had 83,200 and 83,800 but no 83,400). Empty = assume an even grid and verify on Delta.")
+
+g_zone = "Zones"
+tol_pct = input.float(0.45, "Cluster tolerance (% of price)", minval=0.05, step=0.05, group=g_zone)
+use_pd = input.bool(false, "Include previous-day high/low", group=g_zone, tooltip="Off = same level set as /options-entry (research.zones), minus its volume-profile POC/VAH/VAL, which Pine can't compute. On = also cluster PDH/PDL.")
+
+g_state = "Trigger state"
+adx_min = input.float(18, "Min 1h ADX to call it a trend", minval=0, group=g_state)
+arm_atr = input.float(1.0, "ARM within N × 1h ATR of the near band", minval=0, step=0.1, group=g_state)
+disarm_atr = input.float(3.0, "Disarm if price runs N × 1h ATR away untouched", minval=0.5, step=0.5, group=g_state)
+conf_len = input.int(12, "Confirm: close breaks the last N-bar high/low (chart TF)", minval=2, group=g_state)
+valid_bars = input.int(48, "VALID / INVALID stays on for N bars", minval=1, group=g_state)
+
+g_dir = "Direction panel"
+show_dir = input.bool(true, "Show direction panel", group=g_dir)
+dir_pos = input.string("Top right", "Panel position", ["Top right", "Top center", "Top left", "Bottom right", "Bottom center", "Middle left"], group=g_dir)
+layout = input.string("Compact (phone + desktop)", "Layout", ["Compact (phone + desktop)", "Full details"], group=g_dir, tooltip="Compact = one readable panel + short strike labels (fits a phone). Full = both detailed tables + long labels.")
+txt_in = input.string("Normal", "Panel text size", ["Small", "Normal", "Large"], group=g_dir)
+vp_days = input.int(30, "Volume profile lookback (days)", minval=5, maxval=60, group=g_dir, tooltip="Capped at ~4,900 chart bars (on 5m that is ~17 days).")
+vp_bins = input.int(100, "Volume profile bins", minval=20, maxval=300, group=g_dir)
+
+g_draw = "Display"
+lookback = input.int(150, "Draw zones from N bars back", minval=10, maxval=2000, group=g_draw)
+offset = input.int(8, "Label offset (bars right)", minval=1, maxval=200, group=g_draw)
+show_table = input.bool(true, "Show summary table", group=g_draw)
+table_pos = input.string("Bottom left", "Table position", ["Top right", "Bottom right", "Bottom left", "Top left", "Middle right"], group=g_draw, tooltip="Move it off the strike labels (they sit at the right edge).")
+
+// ============================================================== asset geometry
+is_eth = asset_mode == "ETH" or (asset_mode == "Auto" and str.contains(syminfo.basecurrency + syminfo.ticker, "ETH"))
+is_custom = asset_mode == "Custom"
+strike_step = is_custom ? c_step : is_eth ? 10.0 : 200.0
+buffer = is_custom ? c_buffer : is_eth ? 40.0 : 1000.0
+round_to = is_custom ? c_round : is_eth ? 10.0 : 100.0
+tol_frac = tol_pct / 100.0
+
+// ============================================================== higher-timeframe data (confirmed bars only)
+// Bullish when price closes above BOTH EMA20 and EMA50, bearish below both, else neutral.
+// (Requiring EMA20 > EMA50 too was too strict: a recovering weekly trend — price far above both
+// while EMA20 is still catching up to EMA50 — read as neutral and switched the whole ladder off.)
+// Short symbol history: if EMA50 isn't available yet, EMA20 alone decides.
+f_trend() =>
+    e20 = ta.ema(close, 20)
+    e50 = ta.ema(close, 50)
+    up = na(e50) ? close > e20 : close > e20 and close > e50
+    dn = na(e50) ? close < e20 : close < e20 and close < e50
+    t = up ? 1 : dn ? -1 : 0
+    t[1]                                    // previous (closed) higher-TF bar
+
+f_1h() =>
+    [mid, up, lo] = ta.bb(close, 20, 2)
+    [dip, dim, adx] = ta.dmi(14, 14)
+    bbw = (up - lo) / mid
+    [ta.ema(close, 20)[1], ta.ema(close, 50)[1], ta.ema(close, 200)[1], up[1], lo[1], ta.atr(14)[1], adx[1], ta.percentrank(bbw, 120)[1]]
+
+f_4h() =>
+    [mid, up, lo] = ta.bb(close, 20, 2)
+    [up[1], lo[1], ta.atr(14)[1]]
+
+tw = request.security(syminfo.tickerid, "W", f_trend(), lookahead=barmerge.lookahead_on)
+td = request.security(syminfo.tickerid, "D", f_trend(), lookahead=barmerge.lookahead_on)
+t4 = request.security(syminfo.tickerid, "240", f_trend(), lookahead=barmerge.lookahead_on)
+t1 = request.security(syminfo.tickerid, "60", f_trend(), lookahead=barmerge.lookahead_on)
+[e20h, e50h, e200h, bbu1, bbl1, atr1h, adx1h, bbw_rank1h] = request.security(syminfo.tickerid, "60", f_1h(), lookahead=barmerge.lookahead_on)
+[bbu4, bbl4, atr4h] = request.security(syminfo.tickerid, "240", f_4h(), lookahead=barmerge.lookahead_on)
+
+// 4h market structure: last confirmed swing break (3/3 pivots) — the MSB / order-block idea
+f_struct4h() =>
+    ph = ta.pivothigh(high, 3, 3)
+    pl = ta.pivotlow(low, 3, 3)
+    var float last_hi = na
+    var float last_lo = na
+    var int st = 0
+    if not na(ph)
+        last_hi := ph
+    if not na(pl)
+        last_lo := pl
+    if not na(last_hi) and close > last_hi
+        st := 1
+    else if not na(last_lo) and close < last_lo
+        st := -1
+    st[1]
+
+// order-flow proxy: 24h sum of volume × where each 1h candle closed inside its range
+f_flow1h() =>
+    rng = high - low
+    dlt = rng > 0 ? volume * (close - open) / rng : 0.0
+    s = math.sum(dlt, 24)
+    s[1]
+
+st4 = request.security(syminfo.tickerid, "240", f_struct4h(), lookahead=barmerge.lookahead_on)
+flow1h = request.security(syminfo.tickerid, "60", f_flow1h(), lookahead=barmerge.lookahead_on)
+flow_v = na(flow1h) ? 0 : flow1h > 0 ? 1 : flow1h < 0 ? -1 : 0
+
+// volume-profile POC over the last vp_days (computed once, on the last bar)
+f_poc(int n) =>
+    float lo = na
+    float hi = na
+    for i = 0 to n - 1
+        tp = (high[i] + low[i] + close[i]) / 3
+        lo := na(lo) ? tp : math.min(lo, tp)
+        hi := na(hi) ? tp : math.max(hi, tp)
+    float out = na
+    if hi > lo
+        bins = array.new_float(vp_bins, 0.0)
+        w = (hi - lo) / vp_bins
+        for i = 0 to n - 1
+            tp = (high[i] + low[i] + close[i]) / 3
+            k = math.min(int((tp - lo) / w), vp_bins - 1)
+            array.set(bins, k, array.get(bins, k) + nz(volume[i]))
+        kmax = array.indexof(bins, array.max(bins))
+        out := lo + (kmax + 0.5) * w
+    out
+
+var float poc_val = na
+vp_n = math.min(4900, math.max(10, int(vp_days * 86400 / timeframe.in_seconds())), bar_index)
+if barstate.islast and vp_n > 10
+    poc_val := f_poc(vp_n)
+vp_v = barstate.islast and not na(poc_val) ? (close > poc_val * 1.001 ? 1 : close < poc_val * 0.999 ? -1 : 0) : 0
+[pdh, pdl, pdc] = request.security(syminfo.tickerid, "D", [high[1], low[1], close[1]], lookahead=barmerge.lookahead_on)
+
+dvol_sym = is_eth ? "DERIBIT:ETHDVOL" : "DERIBIT:DVOL"
+dvol = request.security(dvol_sym, "60", close[1], lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+use_dvol = iv_mode == "DVOL" and not na(dvol)
+iv = (use_dvol ? dvol : iv_manual) * iv_mult / 100.0
+
+pp = (pdh + pdl + pdc) / 3.0
+r1 = 2 * pp - pdl
+s1 = 2 * pp - pdh
+r2 = pp + (pdh - pdl)
+s2 = pp - (pdh - pdl)
+r3 = pdh + 2 * (pp - pdl)
+s3 = pdl - 2 * (pdh - pp)
+
+// DIRECTION: weighted score, gated so it never fights the Weekly/Daily trend (research/direction.py)
+dir_score = 2 * nz(tw) + 2 * nz(td) + nz(t4) + nz(t1) + nz(st4) + vp_v + flow_v
+fav = dir_score >= 3 and nz(tw) >= 0 and nz(td) >= 0 ? 1 : dir_score <= -3 and nz(tw) <= 0 and nz(td) <= 0 ? -1 : 0   // 1 = sell PUTS, -1 = sell CALLS, 0 = stand aside
+trend_ok = adx1h >= adx_min
+squeeze = bbw_rank1h <= 20
+
+// ============================================================== zones (NEAR + STRUCTURAL per side)
+f_zone(float[] vals, string[] names, float spot, bool above, float tol, float maxspan) =>
+    fv = array.new_float()
+    fn = array.new_string()
+    for i = 0 to array.size(vals) - 1
+        v = array.get(vals, i)
+        if not na(v) and (above ? v > spot : v < spot)
+            array.push(fv, v)
+            array.push(fn, array.get(names, i))
+    float n_lo = na
+    float n_hi = na
+    float s_lo = na
+    float s_hi = na
+    string n_src = ""
+    string s_src = ""
+    int ci = 0
+    float anchor = na
+    float far = na
+    n = array.size(fv)
+    if n > 0
+        idx = array.sort_indices(fv, order.ascending)
+        for jj = 0 to n - 1
+            k = array.get(idx, above ? jj : n - 1 - jj)    // nearest-to-price first
+            v = array.get(fv, k)
+            if na(anchor)
+                anchor := v
+                far := v
+            else if math.abs(v - far) <= tol and math.abs(v - anchor) <= maxspan
+                far := v
+            else
+                ci += 1
+                anchor := v
+                far := v
+            if ci == 0
+                n_lo := na(n_lo) ? v : math.min(n_lo, v)
+                n_hi := na(n_hi) ? v : math.max(n_hi, v)
+                n_src := n_src == "" ? array.get(fn, k) : n_src + ", " + array.get(fn, k)
+            else if ci == 1
+                s_lo := na(s_lo) ? v : math.min(s_lo, v)
+                s_hi := na(s_hi) ? v : math.max(s_hi, v)
+                s_src := s_src == "" ? array.get(fn, k) : s_src + ", " + array.get(fn, k)
+    [n_lo, n_hi, n_src, s_lo, s_hi, s_src]
+
+lv = array.from(e20h, e50h, e200h, bbu1, bbl1, bbu4, bbl4, r1, r2, r3, s1, s2, s3)
+ln = array.from("1h EMA20", "1h EMA50", "1h EMA200", "1h BB-up", "1h BB-lo", "4h BB-up", "4h BB-lo", "R1", "R2", "R3", "S1", "S2", "S3")
+if use_pd
+    array.push(lv, pdh)
+    array.push(ln, "PDH")
+    array.push(lv, pdl)
+    array.push(ln, "PDL")
+tol = tol_frac * close
+[rn_lo, rn_hi, rn_src, rs_lo, rs_hi, rs_src] = f_zone(lv, ln, close, true, tol, 2 * tol)
+[sn_lo, sn_hi, sn_src, ss_lo, ss_hi, ss_src] = f_zone(lv, ln, close, false, tol, 2 * tol)
+
+// ============================================================== trigger state machine
+brk_up = close > ta.highest(high, conf_len)[1]
+brk_dn = close < ta.lowest(low, conf_len)[1]
+
+var int state = 0            // 0 WAIT · 1 ARMED · 2 VALID · 3 INVALID
+var int p_side = 0
+var float p_n_lo = na
+var float p_n_hi = na
+var float p_s_lo = na
+var float p_s_hi = na
+var string p_n_src = ""
+var string p_s_src = ""
+var bool touched = false
+var int mark_bar = na
+
+live_n_lo = fav == 1 ? sn_lo : rn_lo
+live_n_hi = fav == 1 ? sn_hi : rn_hi
+live_s_lo = fav == 1 ? ss_lo : rs_lo
+live_s_hi = fav == 1 ? ss_hi : rs_hi
+live_n_src = fav == 1 ? sn_src : rn_src
+live_s_src = fav == 1 ? ss_src : rs_src
+
+if (state == 2 or state == 3) and bar_index - mark_bar > valid_bars
+    state := 0
+
+if state == 0
+    if fav != 0 and trend_ok and not na(live_n_lo) and not na(atr1h)
+        dist = fav == 1 ? close - live_n_hi : live_n_lo - close
+        if dist <= arm_atr * atr1h
+            state := 1
+            p_side := fav
+            p_n_lo := live_n_lo
+            p_n_hi := live_n_hi
+            p_s_lo := live_s_lo
+            p_s_hi := live_s_hi
+            p_n_src := live_n_src
+            p_s_src := live_s_src
+            touched := false
+else if state == 1 or state == 2
+    failed = p_side == 1 ? close < p_n_lo : close > p_n_hi
+    if failed
+        state := 3
+        mark_bar := bar_index
+    else if state == 1
+        touched := touched or (p_side == 1 ? low <= p_n_hi : high >= p_n_lo)
+        // Freeze on TOUCH, not on arm: until price actually reaches the band, keep the plan on the
+        // live zones (a level can form between price and a stale band while price drifts). Once
+        // touched, the plan stays frozen — inside the band the live clustering would reclassify it.
+        if not touched and fav == p_side and not na(live_n_lo)
+            p_n_lo := live_n_lo
+            p_n_hi := live_n_hi
+            p_s_lo := live_s_lo
+            p_s_hi := live_s_hi
+            p_n_src := live_n_src
+            p_s_src := live_s_src
+        conf = p_side == 1 ? brk_up : brk_dn
+        away = p_side == 1 ? close - p_n_hi > disarm_atr * atr1h : p_n_lo - close > disarm_atr * atr1h
+        if fav != p_side
+            state := 0
+        else if touched and conf
+            state := 2
+            mark_bar := bar_index
+        else if away and not touched
+            state := 0
+
+plotshape(state == 1 and state[1] != 1, "ARMED", shape.circle, location.belowbar, color.aqua, size=size.tiny)
+plotshape(state == 2 and state[1] != 2, "VALID", shape.triangleup, location.belowbar, color.lime, size=size.small)
+plotshape(state == 3 and state[1] != 3, "INVALID", shape.xcross, location.abovebar, color.orange, size=size.small)
+
+// ============================================================== option model (Black-Scholes, r = 0)
+f_ncdf(float x) =>
+    t = 1.0 / (1.0 + 0.2316419 * math.abs(x))
+    d = 0.3989422804014327 * math.exp(-0.5 * x * x)
+    p = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))))
+    x >= 0 ? 1.0 - p : p
+
+f_bs(float S, float K, float T, float vol, bool is_call) =>
+    float px = na
+    float dl = na
+    float po = na
+    if S > 0 and K > 0 and T > 0 and vol > 0
+        sq = vol * math.sqrt(T)
+        d1 = (math.log(S / K) + 0.5 * vol * vol * T) / sq
+        d2 = d1 - sq
+        px := is_call ? S * f_ncdf(d1) - K * f_ncdf(d2) : K * f_ncdf(-d2) - S * f_ncdf(-d1)
+        dl := is_call ? f_ncdf(d1) : f_ncdf(d1) - 1.0
+        po := is_call ? f_ncdf(-d2) : f_ncdf(d2)        // P(expire OTM), risk-neutral
+    [px, dl, po]
+
+var float[] listed = array.new_float()
+if barstate.isfirst and str.length(listed_in) > 0
+    for t in str.split(str.replace_all(listed_in, " ", ""), ",")
+        x = str.tonumber(t)
+        if not na(x)
+            array.push(listed, x)
+    array.sort(listed, order.ascending)
+use_listed = array.size(listed) > 0
+
+// Walk the strike grid (or the LISTED strikes, if given) outward from the gate. ALT = |delta| closest to target inside the band.
+// BEST = of the in-band strikes past the shelf edge, the one closest to the target — never closer to
+// price than ALT (falls back to ALT, flagged). research/ladder_backtest.py: the old "first in-band
+// strike past the shelf" picked the HIGHEST-delta strike when the shelf sat above the gate
+// (85.7% OTM vs 89.0%); this rule tests at 89.1%.
+f_pick(bool is_put, float S, float gate, float shelf_edge, float T, float vol) =>
+    float b_k = na
+    float b_d = na
+    float b_px = na
+    float b_po = na
+    float a_k = na
+    float a_d = na
+    float a_px = na
+    float a_po = na
+    float a_err = 1e9
+    float b_err = 1e9
+    if not na(gate) and S > 0 and T > 0 and vol > 0
+        k0 = is_put ? math.floor(gate / strike_step) * strike_step : math.ceil(gate / strike_step) * strike_step
+        n_c = use_listed ? array.size(listed) : 40
+        for i = 0 to n_c - 1
+            float k = na
+            if use_listed
+                kk = is_put ? array.get(listed, n_c - 1 - i) : array.get(listed, i)    // walk away from the money
+                k := (is_put ? kk <= gate : kk >= gate) ? kk : na
+            else
+                k := is_put ? k0 - i * strike_step : k0 + i * strike_step
+            if not na(k)
+                [px, dl, po] = f_bs(S, k, T, vol, not is_put)
+                ad = math.abs(dl)
+                in_band = ad >= dmin and ad <= dmax
+                if in_band and math.abs(ad - dtarget) < a_err
+                    a_err := math.abs(ad - dtarget)
+                    a_k := k
+                    a_d := dl
+                    a_px := px
+                    a_po := po
+                past_shelf = na(shelf_edge) or (is_put ? k <= shelf_edge : k >= shelf_edge)
+                if past_shelf and in_band and math.abs(ad - dtarget) < b_err
+                    b_err := math.abs(ad - dtarget)
+                    b_k := k
+                    b_d := dl
+                    b_px := px
+                    b_po := po
+    bool fb = false
+    if not na(a_k) and (na(b_k) or (is_put ? b_k > a_k : b_k < a_k))
+        b_k := a_k
+        b_d := a_d
+        b_px := a_px
+        b_po := a_po
+        fb := true
+    [b_k, b_d, b_px, b_po, a_k, a_d, a_px, a_po, fb]
+
+// premium if price arrives at the zone slowly (theta charged over the ATR travel time, IV flat)
+f_at_zone(bool is_put, float k, float arrival, float S, float T, float vol) =>
+    float out = na
+    if not na(k) and not na(arrival) and not na(atr1h) and atr1h > 0
+        hz = math.abs(S - arrival) / (0.5 * atr1h)
+        T2 = math.max(T - hz / 8760.0, 1.0 / 8760.0)
+        [px, dl, po] = f_bs(arrival, k, T2, vol, not is_put)
+        out := px
+    out
+
+// ============================================================== expiry clock
+day_ms = 86400000
+now_ms = timenow
+today_exp = timestamp("UTC", year(now_ms, "UTC"), month(now_ms, "UTC"), dayofmonth(now_ms, "UTC"), exp_hour, 0)
+next_exp = now_ms < today_exp ? today_exp : today_exp + day_ms
+exp_ts = next_exp + (exp_days - 1) * day_ms
+hours_left = (exp_ts - now_ms) / 3600000.0
+T_years = hours_left / 8760.0
+months = array.from("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+exp_str = str.tostring(dayofmonth(exp_ts, "UTC"), "00") + "-" + array.get(months, month(exp_ts, "UTC") - 1) + "-" + str.tostring(year(exp_ts, "UTC"))
+
+// ============================================================== drawing helpers
+c_res = color.rgb(242, 54, 69)
+c_sup = color.rgb(8, 153, 129)         // TradingView green: white text stays readable on it
+c_inv = color.orange
+
+f_rng(float lo, float hi) =>
+    str.tostring(lo, "#,###") + (hi > lo ? "–" + str.tostring(hi, "#,###") : "")
+
+f_box(float lo, float hi, color c, string txt, int transp) =>
+    box b = na
+    if not na(lo) and not na(hi)
+        b := box.new(bar_index - lookback, hi, bar_index + offset, lo, border_color=color.new(c, 40), bgcolor=color.new(c, transp), extend=extend.right, text=txt, text_color=c, text_size=size.small, text_halign=text.align_left, text_valign=text.align_top)
+    b
+
+f_hline(float y, color c, string style, int width, string txt) =>
+    line l = na
+    label lb = na
+    if not na(y)
+        l := line.new(bar_index - lookback, y, bar_index + offset, y, color=c, style=style, width=width, extend=extend.right)
+        bold = width >= 2                                   // BEST: solid colour + white text; others: dark chip
+        lb := label.new(bar_index + offset, y, txt, style=label.style_label_left, color=bold ? c : color.rgb(30, 34, 45), textcolor=bold ? color.white : c, size=bold ? size.normal : size.small)
+    [l, lb]
+
+f_hline_left(float y, color c, string txt) =>
+    line l = na
+    label lb = na
+    if not na(y)
+        l := line.new(bar_index - lookback, y, bar_index + offset, y, color=c, style=line.style_dashed, width=1, extend=extend.right)
+        lb := label.new(bar_index - lookback, y, txt, style=label.style_label_left, color=c, textcolor=color.black, size=size.small)
+    [l, lb]
+
+f_strike_txt(string tag, bool is_put, float k, float d, float px, float po, float atz, float S, float T, float vol) =>
+    em = S * vol * math.sqrt(T)
+    cush = em > 0 ? math.abs(S - k) / em : na
+    tag + (is_put ? "P " : "C ") + str.tostring(k, "#") + " · δ" + str.tostring(math.abs(d), "0.00") + " · model ~" + str.tostring(px, "#.#") + " · rest@~" + str.tostring(atz, "#.#") + " · P(OTM) " + str.tostring(po * 100, "#") + "% · " + str.tostring(cush, "0.0") + " EM · " + exp_str
+
+f_strike_short(string tag, bool is_put, float k, float px, float atz) =>
+    tag + (is_put ? "P " : "C ") + str.tostring(k, "#") + " · ~" + str.tostring(px, "#") + " · rest@~" + str.tostring(atz, "#")
+
+f_arrow(int t) =>
+    t == 1 ? "▲" : t == -1 ? "▼" : "–"
+
+// ============================================================== render (last bar)
+compact = str.startswith(layout, "Compact")
+p_txt = txt_in == "Small" ? size.small : txt_in == "Large" ? size.large : size.normal
+p_head = txt_in == "Small" ? size.normal : size.large
+c_panel = color.rgb(19, 23, 34)
+c_cell = color.rgb(30, 34, 45)
+on_delta_perp = str.contains(syminfo.ticker, ".P")
+dt_pos = dir_pos == "Top center" ? position.top_center : dir_pos == "Top left" ? position.top_left : dir_pos == "Bottom right" ? position.bottom_right : dir_pos == "Bottom center" ? position.bottom_center : dir_pos == "Middle left" ? position.middle_left : position.top_right
+var table dt = table.new(dt_pos, 3, 12, bgcolor=c_panel, border_width=1, border_color=c_panel, frame_color=color.rgb(70, 75, 90), frame_width=1)
+var line[] lns = array.new_line()
+var box[] bxs = array.new_box()
+var label[] lbs = array.new_label()
+tb_pos = table_pos == "Top right" ? position.top_right : table_pos == "Bottom right" ? position.bottom_right : table_pos == "Top left" ? position.top_left : table_pos == "Middle right" ? position.middle_right : position.bottom_left
+var table tb = table.new(tb_pos, 2, 10, bgcolor=c_panel, border_width=1, border_color=c_panel, frame_color=color.rgb(70, 75, 90), frame_width=1)
+
+alertcondition(fav != fav[1], "Direction changed", "OPT-AUTO: direction changed (puts / calls / stand aside) — check the panel.")
+alertcondition(state == 1 and state[1] != 1, "ARMED", "OPT-AUTO: ARMED — price is near the zone; wait for the confirmation break.")
+alertcondition(state == 2 and state[1] != 2, "VALID", "OPT-AUTO: VALID — zone touched and confirmed. Check LIVE Delta bid/ask, OI, spread before anything; you place every order.")
+alertcondition(state == 3 and state[1] != 3, "INVALID", "OPT-AUTO: INVALID — closed through the near band. Plan is off.")
+
+if barstate.islast
+    for l in lns
+        line.delete(l)
+    array.clear(lns)
+    for b in bxs
+        box.delete(b)
+    array.clear(bxs)
+    for lb in lbs
+        label.delete(lb)
+    array.clear(lbs)
+
+    frozen_put = state > 0 and p_side == 1
+    frozen_call = state > 0 and p_side == -1
+    pn_lo = frozen_put ? p_n_lo : sn_lo
+    pn_hi = frozen_put ? p_n_hi : sn_hi
+    ps_lo = frozen_put ? p_s_lo : ss_lo
+    ps_hi = frozen_put ? p_s_hi : ss_hi
+    pn_src = frozen_put ? p_n_src : sn_src
+    ps_src = frozen_put ? p_s_src : ss_src
+    cn_lo = frozen_call ? p_n_lo : rn_lo
+    cn_hi = frozen_call ? p_n_hi : rn_hi
+    cs_lo = frozen_call ? p_s_lo : rs_lo
+    cs_hi = frozen_call ? p_s_hi : rs_hi
+    cn_src = frozen_call ? p_n_src : rn_src
+    cs_src = frozen_call ? p_s_src : rs_src
+
+    array.push(bxs, f_box(cs_lo, cs_hi, c_res, "STRUCT RESIST " + f_rng(cs_lo, cs_hi) + " · " + cs_src, 92))
+    array.push(bxs, f_box(cn_lo, cn_hi, c_res, "NEAR RESIST " + f_rng(cn_lo, cn_hi) + " · " + cn_src, 84))
+    array.push(bxs, f_box(pn_lo, pn_hi, c_sup, "NEAR SUPPORT " + f_rng(pn_lo, pn_hi) + " · " + pn_src, 84))
+    array.push(bxs, f_box(ps_lo, ps_hi, c_sup, "STRUCT SHELF " + f_rng(ps_lo, ps_hi) + " · " + ps_src, 92))
+
+    S = close
+    gap = shelf_gap_atr * nz(atr4h)
+    put_arr = math.floor(pn_hi / round_to) * round_to
+    call_arr = math.ceil(cn_lo / round_to) * round_to
+    put_shelf = (na(ps_lo) ? pn_lo : ps_lo) - gap
+    call_shelf = (na(cs_hi) ? cn_hi : cs_hi) + gap
+    [pb_k, pb_d, pb_px, pb_po, pa_k, pa_d, pa_px, pa_po, pb_fb] = f_pick(true, S, put_arr - buffer, put_shelf, T_years, iv)
+    [cb_k, cb_d, cb_px, cb_po, ca_k, ca_d, ca_px, ca_po, cb_fb] = f_pick(false, S, call_arr + buffer, call_shelf, T_years, iv)
+
+    side = state > 0 ? p_side : fav
+    gamma_bad = hours_left < gamma_h
+    best_ok = side != 0 and state != 3 and not gamma_bad
+    best_tag = state == 2 ? "◄ BEST NOW · " : "◄ BEST IF TRIGGERED · "
+
+    // favoured side: BEST (bold) + ALT; other side: counter-trend reference only
+    if side == 1
+        if best_ok and not na(pb_k)
+            [l1, lb1] = f_hline(pb_k, c_sup, line.style_solid, 2, (compact ? f_strike_short(best_tag, true, pb_k, pb_px, f_at_zone(true, pb_k, put_arr, S, T_years, iv)) : f_strike_txt(best_tag, true, pb_k, pb_d, pb_px, pb_po, f_at_zone(true, pb_k, put_arr, S, T_years, iv), S, T_years, iv)))
+            array.push(lns, l1)
+            array.push(lbs, lb1)
+        if not na(pa_k) and (na(pb_k) or pa_k != pb_k)
+            [l2, lb2] = f_hline(pa_k, c_sup, line.style_dotted, 1, (compact ? f_strike_short("alt · ", true, pa_k, pa_px, f_at_zone(true, pa_k, put_arr, S, T_years, iv)) : f_strike_txt("alt (scanner δ) · ", true, pa_k, pa_d, pa_px, pa_po, f_at_zone(true, pa_k, put_arr, S, T_years, iv), S, T_years, iv)))
+            array.push(lns, l2)
+            array.push(lbs, lb2)
+        if not na(ca_k)
+            [l3, lb3] = f_hline(ca_k, color.gray, line.style_dotted, 1, (compact ? f_strike_short("counter-trend ½ · ", false, ca_k, ca_px, f_at_zone(false, ca_k, call_arr, S, T_years, iv)) : f_strike_txt("counter-trend · half size · ", false, ca_k, ca_d, ca_px, ca_po, f_at_zone(false, ca_k, call_arr, S, T_years, iv), S, T_years, iv)))
+            array.push(lns, l3)
+            array.push(lbs, lb3)
+    else if side == -1
+        if best_ok and not na(cb_k)
+            [l1, lb1] = f_hline(cb_k, c_res, line.style_solid, 2, (compact ? f_strike_short(best_tag, false, cb_k, cb_px, f_at_zone(false, cb_k, call_arr, S, T_years, iv)) : f_strike_txt(best_tag, false, cb_k, cb_d, cb_px, cb_po, f_at_zone(false, cb_k, call_arr, S, T_years, iv), S, T_years, iv)))
+            array.push(lns, l1)
+            array.push(lbs, lb1)
+        if not na(ca_k) and (na(cb_k) or ca_k != cb_k)
+            [l2, lb2] = f_hline(ca_k, c_res, line.style_dotted, 1, (compact ? f_strike_short("alt · ", false, ca_k, ca_px, f_at_zone(false, ca_k, call_arr, S, T_years, iv)) : f_strike_txt("alt (scanner δ) · ", false, ca_k, ca_d, ca_px, ca_po, f_at_zone(false, ca_k, call_arr, S, T_years, iv), S, T_years, iv)))
+            array.push(lns, l2)
+            array.push(lbs, lb2)
+        if not na(pa_k)
+            [l3, lb3] = f_hline(pa_k, color.gray, line.style_dotted, 1, (compact ? f_strike_short("counter-trend ½ · ", true, pa_k, pa_px, f_at_zone(true, pa_k, put_arr, S, T_years, iv)) : f_strike_txt("counter-trend · half size · ", true, pa_k, pa_d, pa_px, pa_po, f_at_zone(true, pa_k, put_arr, S, T_years, iv), S, T_years, iv)))
+            array.push(lns, l3)
+            array.push(lbs, lb3)
+    else
+        if not na(pa_k)
+            [l2, lb2] = f_hline(pa_k, color.gray, line.style_dotted, 1, (compact ? f_strike_short("no side · ", true, pa_k, pa_px, f_at_zone(true, pa_k, put_arr, S, T_years, iv)) : f_strike_txt("no HTF alignment · ", true, pa_k, pa_d, pa_px, pa_po, f_at_zone(true, pa_k, put_arr, S, T_years, iv), S, T_years, iv)))
+            array.push(lns, l2)
+            array.push(lbs, lb2)
+        if not na(ca_k)
+            [l3, lb3] = f_hline(ca_k, color.gray, line.style_dotted, 1, (compact ? f_strike_short("no side · ", false, ca_k, ca_px, f_at_zone(false, ca_k, call_arr, S, T_years, iv)) : f_strike_txt("no HTF alignment · ", false, ca_k, ca_d, ca_px, ca_po, f_at_zone(false, ca_k, call_arr, S, T_years, iv), S, T_years, iv)))
+            array.push(lns, l3)
+            array.push(lbs, lb3)
+
+    // invalidation lines for the favoured side
+    inv_soft = side == 1 ? pn_lo : side == -1 ? cn_hi : na
+    inv_hard = side == 1 ? ps_lo : side == -1 ? cs_hi : na
+    [li1, lbi1] = f_hline_left(inv_soft, c_inv, "INVALIDATION (near band fails) " + str.tostring(inv_soft, "#,###"))
+    array.push(lns, li1)
+    array.push(lbs, lbi1)
+    [li2, lbi2] = f_hline_left(inv_hard, c_inv, "INVALIDATION (shelf fails — plan dead) " + str.tostring(inv_hard, "#,###"))
+    array.push(lns, li2)
+    array.push(lbs, lbi2)
+
+    // status tag at price
+    st_txt = state == 2 ? "VALID" : state == 1 ? "ARMED" : state == 3 ? "INVALID" : "WAIT"
+    side_txt = side == 1 ? "put" : side == -1 ? "call" : "no side"
+    st_col = state == 2 ? color.lime : state == 1 ? color.aqua : state == 3 ? c_inv : color.yellow
+    array.push(lbs, label.new(bar_index + offset, close, "STATUS: " + st_txt + " (" + side_txt + ")", style=label.style_label_left, color=st_col, textcolor=color.black, size=size.normal))
+
+    best_fb = side == 1 ? pb_fb : side == -1 ? cb_fb : false
+    if show_table and not compact
+        best_k = side == 1 ? pb_k : side == -1 ? cb_k : na
+        best_d = side == 1 ? pb_d : cb_d
+        best_px = side == 1 ? pb_px : cb_px
+        best_po = side == 1 ? pb_po : cb_po
+        best_txt = side == 0 ? "none — Weekly/Daily not aligned (stand aside)" : gamma_bad ? "× expiry under " + str.tostring(gamma_h, "#") + "h — raise 'days ahead'" : state == 3 ? "none — plan invalidated" : na(best_k) ? "none (no strike past the shelf in the δ band)" : (side == 1 ? "P " : "C ") + str.tostring(best_k, "#") + " · δ" + str.tostring(math.abs(best_d), "0.00") + " · model ~" + str.tostring(best_px, "#.#") + " · P(OTM) " + str.tostring(best_po * 100, "#") + "%"
+        trig_txt = side == 1 ? "dip into " + f_rng(pn_lo, pn_hi) + " + close > last " + str.tostring(conf_len) + "-bar high" : side == -1 ? "rally into " + f_rng(cn_lo, cn_hi) + " + close < last " + str.tostring(conf_len) + "-bar low" : "Weekly/Daily disagree — stand aside"
+        table.cell(tb, 0, 0, "Bias W/D/4h/1h", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 0, f_arrow(tw) + " " + f_arrow(td) + " " + f_arrow(t4) + " " + f_arrow(t1) + "  →  " + (fav == 1 ? "PUT side" : fav == -1 ? "CALL side" : "none"), text_color=color.white, text_size=size.small)
+        table.cell(tb, 0, 1, "Trend / vol", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 1, "ADX1h " + str.tostring(adx1h, "#") + (trend_ok ? "" : " (no trend → WAIT)") + (squeeze ? " · BB squeeze" : ""), text_color=trend_ok ? color.white : color.yellow, text_size=size.small)
+        table.cell(tb, 0, 2, "IV (model)", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 2, (use_dvol ? "DVOL " : "manual ") + str.tostring(iv * 100, "#.#") + "%" + (iv_mult != 1.0 ? " (×" + str.tostring(iv_mult, "#.##") + ")" : ""), text_color=color.white, text_size=size.small)
+        table.cell(tb, 0, 3, "Expiry", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 3, exp_str + " " + str.tostring(exp_hour, "00") + ":00 UTC (~" + str.tostring(hours_left, "#") + "h)", text_color=gamma_bad ? c_inv : color.white, text_size=size.small)
+        table.cell(tb, 0, 4, "Status", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 4, st_txt + " (" + side_txt + ")", text_color=st_col, text_size=size.small)
+        table.cell(tb, 0, 5, "Trigger", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 5, trig_txt, text_color=color.white, text_size=size.small)
+        table.cell(tb, 0, 6, "Best (model)", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 6, best_txt, text_color=color.white, text_size=size.small)
+        table.cell(tb, 0, 7, "Invalidation", text_color=color.gray, text_size=size.small)
+        inv_txt = na(inv_soft) ? "— (no favoured side)" : "near " + str.tostring(inv_soft, "#,###") + (na(inv_hard) ? "" : " · hard " + str.tostring(inv_hard, "#,###"))
+        table.cell(tb, 1, 7, inv_txt, text_color=c_inv, text_size=size.small)
+        table.cell(tb, 0, 8, "Chart", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 8, timeframe.in_seconds() > 3600 ? "use a ≤1h chart for correct zones" : "ok", text_color=timeframe.in_seconds() > 3600 ? c_inv : color.gray, text_size=size.small)
+        table.cell(tb, 0, 9, "Check", text_color=color.silver, text_size=size.small)
+        table.cell(tb, 1, 9, "MODEL ONLY — verify strike listed, bid/ask, OI, spread on Delta. Not advice.", text_color=color.gray, text_size=size.small)
+
+    if show_dir and compact
+        table.clear(dt, 0, 0, 2, 11)
+        d_txt = fav == 1 ? "SELL PUTS" : fav == -1 ? "SELL CALLS" : "STAND ASIDE"
+        d_bg = fav == 1 ? color.rgb(8, 153, 129) : fav == -1 ? color.rgb(242, 54, 69) : color.rgb(255, 152, 0)
+        conf = math.abs(dir_score) >= 7 ? "high" : math.abs(dir_score) >= 5 ? "medium" : math.abs(dir_score) >= 3 ? "low" : "none"
+        gated = math.abs(dir_score) >= 3 and fav == 0
+        k_best = side == 1 ? pb_k : side == -1 ? cb_k : na
+        px_best = side == 1 ? pb_px : cb_px
+        d_best = side == 1 ? pb_d : cb_d
+        strike_txt = side == 0 ? "—" : gamma_bad ? "expiry < " + str.tostring(gamma_h, "#") + "h: next expiry" : state == 3 ? "— (plan invalidated)" : na(k_best) ? "—" : (side == 1 ? "P " : "C ") + str.tostring(k_best, "#") + " · δ" + str.tostring(math.abs(d_best), "0.00") + " · ~" + str.tostring(px_best, "#") + (best_fb ? " (inside shelf)" : "") + (use_listed ? " ✓listed" : " · verify listed")
+        stop_txt = na(inv_soft) ? "—" : (side == 1 ? "close < " : "close > ") + str.tostring(inv_soft, "#,###") + "  (dead " + str.tostring(inv_hard, "#,###") + ")"
+        r = 0
+        table.cell(dt, 0, r, d_txt, bgcolor=d_bg, text_color=color.white, text_size=p_head)
+        table.merge_cells(dt, 0, r, 1, r)
+        r += 1
+        table.cell(dt, 0, r, "Score", bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+        table.cell(dt, 1, r, (dir_score > 0 ? "+" : "") + str.tostring(dir_score) + "/9 · " + conf + (fav == -1 ? " · calls weaker in bull mkts" : gated ? " · blocked by W/D" : ""), bgcolor=c_cell, text_color=color.white, text_size=p_txt, text_halign=text.align_left)
+        r += 1
+        table.cell(dt, 0, r, "Trend", bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+        table.cell(dt, 1, r, "W" + f_arrow(nz(tw)) + "  D" + f_arrow(nz(td)) + "  4h" + f_arrow(nz(t4)) + "  1h" + f_arrow(nz(t1)), bgcolor=c_cell, text_color=color.white, text_size=p_txt, text_halign=text.align_left)
+        r += 1
+        table.cell(dt, 0, r, "Flow", bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+        table.cell(dt, 1, r, "Struct" + f_arrow(nz(st4)) + "  VP" + f_arrow(vp_v) + "  OF" + f_arrow(flow_v), bgcolor=c_cell, text_color=color.white, text_size=p_txt, text_halign=text.align_left)
+        r += 1
+        table.cell(dt, 0, r, "Status", bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+        table.cell(dt, 1, r, st_txt + " (" + side_txt + ")", bgcolor=c_cell, text_color=st_col, text_size=p_txt, text_halign=text.align_left)
+        r += 1
+        table.cell(dt, 0, r, "Strike", bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+        table.cell(dt, 1, r, strike_txt + " · " + exp_str, bgcolor=c_cell, text_color=color.white, text_size=p_txt, text_halign=text.align_left)
+        r += 1
+        table.cell(dt, 0, r, "Stop if", bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+        table.cell(dt, 1, r, stop_txt, bgcolor=c_cell, text_color=c_inv, text_size=p_txt, text_halign=text.align_left)
+        r += 1
+        if not on_delta_perp or timeframe.in_seconds() > 3600
+            table.cell(dt, 0, r, "⚠", bgcolor=c_cell, text_color=c_inv, text_size=p_txt)
+            table.cell(dt, 1, r, (not on_delta_perp ? "use Delta BTCUSD.P (options settle there)" : "") + (not on_delta_perp and timeframe.in_seconds() > 3600 ? " · " : "") + (timeframe.in_seconds() > 3600 ? "use a ≤1h chart" : ""), bgcolor=c_cell, text_color=c_inv, text_size=p_txt, text_halign=text.align_left)
+            r += 1
+        table.cell(dt, 0, r, "right side 89% vs wrong 85% (2y test) · lean, not forecast · check Delta chain", bgcolor=c_panel, text_color=color.gray, text_size=size.small)
+        table.merge_cells(dt, 0, r, 1, r)
+
+// ============================================================== direction panel (Full layout)
+
+f_vote_cell(int row, string name, int v, string detail) =>
+    vc = v == 1 ? color.lime : v == -1 ? color.red : color.gray
+    table.cell(dt, 0, row, name, bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+    table.cell(dt, 1, row, v == 1 ? "▲" : v == -1 ? "▼" : "–", bgcolor=c_cell, text_color=vc, text_size=p_txt)
+    table.cell(dt, 2, row, detail, bgcolor=c_cell, text_color=color.white, text_size=p_txt, text_halign=text.align_left)
+
+if barstate.islast and show_dir and not compact
+    d_txt = fav == 1 ? "SELL PUTS  (put side)" : fav == -1 ? "SELL CALLS  (call side)" : "STAND ASIDE"
+    d_col = fav == 1 ? color.lime : fav == -1 ? color.red : color.yellow
+    conf = math.abs(dir_score) >= 7 ? "high" : math.abs(dir_score) >= 5 ? "medium" : math.abs(dir_score) >= 3 ? "low" : "none"
+    gated = (dir_score >= 3 and fav == 0) or (dir_score <= -3 and fav == 0)
+    note = fav == -1 ? " · CALL signals were weaker in bull markets" : gated ? " · blocked: would fight Weekly/Daily" : ""
+    table.cell(dt, 0, 0, "DIRECTION", bgcolor=c_panel, text_color=color.white, text_size=p_head)
+    table.cell(dt, 1, 0, d_txt, bgcolor=fav == 1 ? color.rgb(8, 153, 129) : fav == -1 ? color.rgb(242, 54, 69) : color.rgb(255, 152, 0), text_color=color.white, text_size=p_head)
+    table.merge_cells(dt, 1, 0, 2, 0)
+    table.cell(dt, 0, 1, "Score", bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+    table.cell(dt, 1, 1, (dir_score > 0 ? "+" : "") + str.tostring(dir_score) + " / 9", bgcolor=c_cell, text_color=d_col, text_size=p_txt)
+    table.cell(dt, 2, 1, "confidence " + conf + note, bgcolor=c_cell, text_color=color.white, text_size=p_txt, text_halign=text.align_left)
+    f_vote_cell(2, "Weekly trend ×2", nz(tw), "close vs EMA20 & EMA50")
+    f_vote_cell(3, "Daily trend ×2", nz(td), "close vs EMA20 & EMA50")
+    f_vote_cell(4, "4h trend", nz(t4), "")
+    f_vote_cell(5, "1h trend", nz(t1), "")
+    f_vote_cell(6, "Structure 4h (MSB/OB)", nz(st4), nz(st4) == 1 ? "last swing break UP" : nz(st4) == -1 ? "last swing break DOWN" : "no break yet")
+    vp_days_eff = vp_n * timeframe.in_seconds() / 86400.0
+    f_vote_cell(7, "Volume profile", vp_v, na(poc_val) ? "POC n/a" : (vp_v == 1 ? "above" : vp_v == -1 ? "below" : "at") + " POC " + str.tostring(poc_val, "#,###") + " (" + str.tostring(vp_days_eff, "#") + "d)")
+    f_vote_cell(8, "Order flow 24h", flow_v, flow_v == 1 ? "buyers pressing (candle-delta proxy)" : flow_v == -1 ? "sellers pressing (candle-delta proxy)" : "flat")
+    table.cell(dt, 0, 9, "Backtest", bgcolor=c_cell, text_color=color.silver, text_size=p_txt, text_halign=text.align_left)
+    table.cell(dt, 1, 9, "chosen side safe 88.9% vs wrong side 84.6% · Aug-24→Oct-26 · a lean, not a forecast", bgcolor=c_cell, text_color=color.white, text_size=p_txt, text_halign=text.align_left)
+    table.merge_cells(dt, 1, 9, 2, 9)

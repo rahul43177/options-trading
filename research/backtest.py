@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable
 from .config import BacktestConfig
 from .pricing import price,strike_for_delta
+from .fees import option_fee
 
 @dataclass
 class Trade:
@@ -47,8 +48,10 @@ def run(candles:list[dict], config:BacktestConfig, strategy:str='naked') -> list
              if mark<=close_target: exit_price=mark+config.slippage_ticks*config.tick_size;exit_ts=int(candles[j]['time']);reason='take_profit';break
             if exit_price is None:
              exit_price=price(float(candles[horizon]['close']),strike,0,vol,kind)+config.slippage_ticks*config.tick_size;exit_ts=int(candles[horizon]['time'])
-            # Option fee is observed product fee rate, applied per side to premium * contract value.
-            fees=config.fee_rate*(entry+exit_price)*.001*config.contracts*2
+            # Delta's real option fee per side: min(0.01% x notional, 3.5% x premium) + 18% GST
+            # (research.fees, verified on live fills). The old line applied the 0.01% NOTIONAL rate
+            # to the PREMIUM, understating fees ~350x on OTM strikes.
+            fees=option_fee(entry,.001*config.contracts,spot)+option_fee(exit_price,.001*config.contracts,spot)
             pnl=(entry-exit_price)*.001*config.contracts-fees
             # MODEL reserve: first $15k INR is trade capital, remainder reserve. premium MTM alone cannot reproduce exchange margin.
             reserve=max(0,-worst-config.initial_inr/config.usd_inr/2)

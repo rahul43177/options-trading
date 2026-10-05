@@ -130,6 +130,23 @@ def _band(members: list[tuple[float, str]], side: str, spot: float) -> dict[str,
     }
 
 
+STRUCTURAL_MIN_GAP_FRAC = 0.005   # structural band should sit >= 0.5% beyond the near band
+
+
+def structural_too_close(near: dict[str, Any] | None, structural: dict[str, Any] | None,
+                         spot: float, min_gap_frac: float = STRUCTURAL_MIN_GAP_FRAC) -> bool:
+    """True when the structural band starts within min_gap_frac*spot of the near band's FAR edge
+    (the gap price must cross after the near band fails) — then it adds little real cushion and
+    the DEEP band should be scanned too. Works for both sides. Pure (unit-tested)."""
+    if not near or not structural or not spot:
+        return False
+    if structural["lo"] >= near["hi"]:            # resistance: structural sits above near
+        gap = structural["lo"] - near["hi"]
+    else:                                          # support: structural sits below near
+        gap = near["lo"] - structural["hi"]
+    return gap < min_gap_frac * spot
+
+
 def _round_arrival(x: float, step: float, side: str) -> float:
     """Round an arrival level to a clean tick AWAY from spot, never toward it. Pure (unit-tested).
 
@@ -196,10 +213,17 @@ def build_zones(asset: str, client: DeltaPublicClient | None = None,
         bands = cluster_levels(spot, levels, side, geom["tol_frac"])
         near = bands[0] if bands else None
         structural = bands[1] if len(bands) > 1 else None
-        for band in (near, structural):
+        # ADDITIVE (05-Oct-2026): a third cluster, reported when the structural band sits so close
+        # to the near band that it isn't real extra cushion (ETH: near 2,690-2,709 vs "structural"
+        # 2,683-2,684 = 0.25% apart, while the 4h BB-lower shelf at ~2,658 was dropped). near and
+        # structural are UNCHANGED, so the Pine ladder (which mirrors them) still matches.
+        deep = bands[2] if len(bands) > 2 else None
+        for band in (near, structural, deep):
             if band:
                 band["arrival_rounded"] = _round_arrival(band["arrival"], geom["round_to"], side)
-        out[side] = {"near": near, "structural": structural}
+                band["weak"] = band["n_sources"] < 2
+        out[side] = {"near": near, "structural": structural, "deep": deep,
+                     "structural_too_close": structural_too_close(near, structural, spot)}
     return out
 
 
@@ -207,9 +231,10 @@ def _fmt_band(tag: str, band: dict[str, Any] | None, flag: str) -> str:
     if not band:
         return f"    {tag:<11} (none found this side)"
     src = ", ".join(band["sources"])
+    weak = "  ← WEAK (single level)" if band.get("weak") else ""
     return (f"    {tag:<11} {band['lo']:,.0f}–{band['hi']:,.0f}  "
             f"(arrival {band['arrival_rounded']:,.0f}, {band['dist_pct']:.2f}% {flag})  "
-            f"[{band['n_sources']}x: {src}]")
+            f"[{band['n_sources']}x: {src}]{weak}")
 
 
 def main() -> None:
@@ -228,12 +253,14 @@ def main() -> None:
     print("  NEAR = reached first (scan this). STRUCTURAL = more cushion (scan this too). "
           "Never call 'no setup' off one zone.")
     print("=" * 92)
-    print("  RESISTANCE (CALL-short watch — above spot):")
-    print(_fmt_band("near", z["resistance"]["near"], "above"))
-    print(_fmt_band("structural", z["resistance"]["structural"], "above"))
-    print("  SUPPORT (PUT-short watch — below spot):")
-    print(_fmt_band("near", z["support"]["near"], "below"))
-    print(_fmt_band("structural", z["support"]["structural"], "below"))
+    for side, title, flag in (("resistance", "RESISTANCE (CALL-short watch — above spot):", "above"),
+                              ("support", "SUPPORT (PUT-short watch — below spot):", "below")):
+        zs = z[side]
+        print(f"  {title}")
+        print(_fmt_band("near", zs["near"], flag))
+        print(_fmt_band("structural", zs["structural"], flag))
+        if zs.get("deep") and zs.get("structural_too_close"):
+            print(_fmt_band("deep", zs["deep"], flag) + "   ← structural is <0.5% past near: SCAN THIS TOO")
     r_near = z["resistance"]["near"]
     s_near = z["support"]["near"]
     print("\n  Feed arrival levels to the scanner, e.g.:")
